@@ -14,6 +14,9 @@ struct StateMachine{
     float speedX = 0.0f;
     float speedY = 0.0f;
     float speedZ = 0.0f;
+    int dirX = 1;
+    int dirY = 1;
+    int dirZ = 1;
     float feed_rate = 0.0f;
     bool absolute_mode = true;
 };
@@ -61,6 +64,10 @@ void plan_linear_move(float targetX, float targetY, float targetZ)
     float speed_steps_y = (move_time > 0) ? (stepsY / move_time) : 0;
     float speed_steps_z = (move_time > 0) ? (stepsZ / move_time) : 0;
 
+
+    (dx > 0) ? state.dirX = 1 : -1;
+    (dy > 0) ? state.dirY = 1 : -1;
+    (dz > 0) ? state.dirZ = 1 : -1;
     state.x = targetX;
     state.speedX = speed_steps_x;
     state.y = targetY;
