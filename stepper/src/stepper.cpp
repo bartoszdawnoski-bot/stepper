@@ -298,7 +298,6 @@ void Stepper::moveSteps(long double steps)
         this->futurePosition = (int)steps + this->position;
         remaining_steps = 0;
     }
-
     isMoving = true;
     if(!Enable) return;
     digitalWrite(ENABLE_PIN, LOW);
