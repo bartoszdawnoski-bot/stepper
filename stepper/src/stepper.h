@@ -1,10 +1,11 @@
 #define STEPPER_H
 #ifdef STEPPER_H
 
-
 #include <Arduino.h>
 #include <hardware/pio.h>
+
 #define LENGHT 2
+
 class Stepper
 {
 public:
@@ -35,7 +36,10 @@ private:
     static Stepper* PIO0_Instance[LENGHT];
     static Stepper* PIO1_Instance[LENGHT]; 
     static Stepper* PIO2_Instance[LENGHT];
-    
+    static uint pio0_start_mask;
+    static uint pio1_start_mask;
+    static uint pio2_start_mask;
+
     float sys_clock;
     float steps_per_second;
     int position, remaining_steps, futurePosition;
@@ -47,9 +51,11 @@ private:
 public:
     Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold, Program set);
     Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold);
+    static void moveSteps();
     bool init();
     void setSpeed(float steps_per_second);
-    void moveSteps(long double steps);
+    void setSteps(long double steps);
+    void moveThis(long double steps);
     static void PIO0_ISR_handler_static();
     static void PIO1_ISR_handler_static();
     static void PIO2_ISR_handler_static();
@@ -59,6 +65,8 @@ public:
     Program getProgram();
     bool setEnable(bool set);
     int getPosition();
+    void zero();
+    void setZero();
 };
 
 #endif 

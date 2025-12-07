@@ -1,107 +1,130 @@
 #include "gcode.h"
 
-StateMachine state; 
+GCode::GCode(Stepper* stX, Stepper* stY, Stepper* stZ):
+stepperX(stX),
+stepperY(stY),
+stepperZ(stZ)
+{}
 
-bool get_value(String line, char key, float& value)
+GCode::GCode(Stepper* stX, Stepper* stY):
+stepperX(stX),
+stepperY(stY)
+{}
+
+long GCode::steps_from_MM(float mm, float stepsPerMM)
 {
-    int index = line.indexOf(key);
-    if(index == -1) return false;
-
-    int start = index + 1;
-    int end = start;
-
-    while(end < line.length())
-    {
-        char c = line.charAt(end);
-        if(isDigit(c) || c == '.' || c == '-' ) end++;
-        else break;
-    }
-
-    if(start == end) return false;
-    value = line.substring(start, end).toFloat();
-    return true;
+    return (long)(mm * stepsPerMM);
 }
 
-void parse(String line)
+long GCode::steps_from_rotation(float rotation, float stepsPerRotation)
 {
-    // Czyszczenie linii
-    int commentIdx = line.indexOf(";");
-    if(commentIdx != -1) line = line.substring(0, commentIdx);
-    line.trim();
-    line.toUpperCase();
-    if(line.length() == 0) return;
+    return (long)(rotation * stepsPerRotation);
+}
 
-    float f_val;
-    if(get_value(line, 'F', f_val)) state.feed_rate = f_val;
-
-    if(line.startsWith("G0") || line.startsWith("G1"))
+void GCode::execute_parase()
+{
+    if(parser.NoWords()) return;
+    else if(parser.HasWord('G'))
     {
-    
-        float tx = state.currentStepX / STEPS_PER_UNIT_X;
-        float ty = state.currentStepY / STEPS_PER_UNIT_Y;
-        float tz = state.currentStepZ / STEPS_PER_UNIT_Z;
-
-        float val;
-        
-        if(get_value(line, 'X', val)) tx = state.absolute_mode ? val : (tx + val);
-        if(get_value(line, 'Y', val)) ty = state.absolute_mode ? val : (ty + val);
-        if(get_value(line, 'Z', val)) tz = state.absolute_mode ? val : (tz + val);
-
-        state.x = lround(tx * STEPS_PER_UNIT_X);
-        state.y = lround(ty * STEPS_PER_UNIT_Y);
-        state.z = lround(tz * STEPS_PER_UNIT_Z);
-
-        long diffX = state.x - state.currentStepX;
-        long diffY = state.y - state.currentStepY;
-        long diffZ = state.z - state.currentStepZ;
-
-        if (diffX == 0 && diffY == 0 && diffZ == 0) 
+        int num = (int)parser.GetWordValue('G');
+        if(num == 1 || num == 0)
         {
-            state.speedX = state.speedY = state.speedZ = 0;
-            return;
+            if(parser.HasWord('X'))
+            {
+                stepX = steps_from_MM(parser.GetWordValue('X'), factor.steps_perMM_x);
+            }
+
+            if (parser.HasWord('Y'))
+            {
+                rotation = parser.GetWordValue('Y');
+                stepY = steps_from_rotation(rotation, factor.steps_per_rotation_c);
+            }
+            
+
+            if (parser.HasWord('F'))
+            {
+                float feed_rate_mm_min = parser.GetWordValue('F');
+                if (stepX != 0 || stepY != 0)
+                {
+                    
+                    if (feed_rate_mm_min <= 0.0f) feed_rate_mm_min = 1.0f;
+                    float speed_mm_sec = feed_rate_mm_min / factor.seconds_in_minute;
+
+                    float dist_mm_x = (float)abs(stepX) / factor.steps_perMM_x;
+                    float dist_unit_y = (float)abs(stepY) / factor.steps_per_rotation_c;
+
+                    float total_dist_mm = sqrtf(dist_mm_x * dist_mm_x + dist_unit_y * dist_unit_y);
+                    if (total_dist_mm > 0.0f)
+                    {
+                        fSpeedX = speed_mm_sec * factor.steps_perMM_x * (dist_mm_x / total_dist_mm);
+                        fSpeedY = speed_mm_sec * factor.steps_per_rotation_c * (dist_unit_y / total_dist_mm);
+                    }
+
+                    float ratio_X = 1.0f;
+                    float ratio_Y = 1.0f;
+
+                    if (fSpeedX > factor.v_max_x) {
+                        ratio_X = factor.v_max_x / fSpeedX;
+                    }
+                     if (fSpeedY > factor.v_max_y) {
+                        ratio_Y = factor.v_max_y / fSpeedY;
+                    }
+
+                    float final_correction_ratio = fminf(ratio_X, ratio_Y);
+
+                    fSpeedX *= final_correction_ratio;
+                    fSpeedY *= final_correction_ratio;
+                    stepperX->setSpeed(fSpeedX);
+                    stepperY->setSpeed(fSpeedY);
+
+                }
+                else
+                {
+                    stepperX->setSpeed(0);
+                    stepperY->setSpeed(0);
+                }
+            }
+
+            if(stepX != 0 || stepY != 0)
+            {
+                Serial.print("Silnik X speed: "); Serial.println(fSpeedX);
+                Serial.print("Silnik Y speed: "); Serial.println(fSpeedY);
+                Serial.print("Silnik X kroki: "); Serial.println(stepX);
+                Serial.print("Silnik Y kroki: "); Serial.println(stepY);
+                stepperX->setSteps(stepX);
+                stepperY->setSteps(stepY);
+                Stepper::moveSteps();
+            }
+
         }
-
-        state.dirX = (diffX >= 0) ? 1 : -1;
-        state.dirY = (diffY >= 0) ? 1 : -1;
-        state.dirZ = (diffZ >= 0) ? 1 : -1;
-
-        float uX = abs(diffX) / STEPS_PER_UNIT_X;
-        float uY = abs(diffY) / STEPS_PER_UNIT_Y;
-        float uZ = abs(diffZ) / STEPS_PER_UNIT_Z;
-
-        float distance = sqrt(uX*uX + uY*uY + uZ*uZ);
-
-        float time_sec = 0;
-        if (state.feed_rate > 0) 
+        else if(num == 28)
         {
-            time_sec = distance / (state.feed_rate / 60.0f);
+            stepperX->zero();
+            stepperY->zero();
         }
-
-         if (time_sec > 0.001f) { // Unikamy dzielenia przez 0
-            state.speedX = lround(abs(diffX) / time_sec);
-            state.speedY = lround(abs(diffY) / time_sec);
-            state.speedZ = lround(abs(diffZ) / time_sec);
-        } 
-        else 
-        {
-            state.speedX = state.speedY = state.speedZ = 0; 
-        }
-    }
-    else if(line.startsWith("G90")) state.absolute_mode = true;
-    else if(line.startsWith("G91")) state.absolute_mode = false;
-    // Reset pozycji 
-    else if(line.startsWith("G92")) 
-    {
-        
-        float val;
-        if(get_value(line, 'X', val)) state.currentStepX = lround(val * STEPS_PER_UNIT_X);
-        if(get_value(line, 'Y', val)) state.currentStepY = lround(val * STEPS_PER_UNIT_Y);
-        if(get_value(line, 'Z', val)) state.currentStepZ = lround(val * STEPS_PER_UNIT_Z);
-        state.x = state.currentStepX;
-        state.y = state.currentStepY;
-        state.z = state.currentStepZ;
     }
 }
 
+void GCode::processLine(const String& line)
+{
+    if(line.length() == 0 || line[0] == ';') return;
 
+    char buffer[128];
+    line.toCharArray(buffer, 128);
 
+    parser.ParseLine(buffer);
+    execute_parase();
+}
+
+void GCode::move_complete()
+{
+    while(stepperX->moving() || stepperY->moving() || stepperZ->moving())
+    {
+        delay(1);
+    }
+    long stepX = 0;
+    long stepY = 0;
+    float rotation = 0.0f;
+    float fSpeedX = 0.0f;
+    float fSpeedY = 0.0f;
+}

@@ -7,6 +7,9 @@ Stepper* Stepper::PIO0_Instance[LENGHT] = {nullptr, nullptr};
 Stepper* Stepper::PIO1_Instance[LENGHT] = {nullptr, nullptr};
 Stepper* Stepper::PIO2_Instance[LENGHT] = {nullptr, nullptr};
 
+uint Stepper::pio0_start_mask = 0;
+uint Stepper::pio1_start_mask = 0;
+uint Stepper::pio2_start_mask = 0;
 
 Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold, Program set)
 :PIO_instance(pio_instance),
@@ -245,17 +248,17 @@ bool Stepper::init()
     pinMode(DIR_PIN, OUTPUT);
     digitalWrite(DIR_PIN, LOW);
 
-    if(PIO_instance == pio0 && PIO0_Instance[SM_counter] == this)
+    if(PIO_instance == pio0)
     {
         irq_set_exclusive_handler(IRQ, PIO0_ISR_handler_static);
         irq_set_enabled(IRQ, true);
     }
-    else if(PIO_instance == pio1 && PIO1_Instance[SM_counter] == this)
+    else if(PIO_instance == pio1)
     {
         irq_set_exclusive_handler(IRQ, PIO1_ISR_handler_static);
         irq_set_enabled(IRQ, true);
     }
-    else if(PIO_instance == pio2 && PIO2_Instance[SM_counter] == this)
+    else if(PIO_instance == pio2)
     {
         irq_set_exclusive_handler(IRQ, PIO2_ISR_handler_static);
         irq_set_enabled(IRQ, true);
@@ -278,15 +281,17 @@ bool Stepper::init()
 
 void Stepper::setSpeed(float steps_per_second)
 {
-    if(steps_per_second < 1.0f) steps_per_second = 1.0f;
+    if(steps_per_second <= 0.0f) steps_per_second = 1.0f;
 
-    const float delay_loop = 60.0f;
-    float clk_div = sys_clock / (delay_loop * steps_per_second);
-
-    pio_sm_set_clkdiv(PIO_instance, SM_speed, clk_div);
+    const float delay_loop = 69.0f;
+    float clk_div = this->sys_clock / (delay_loop * steps_per_second);
+    if (clk_div < 1.0f) clk_div = 1.0f;
+    uint int_div = (uint)clk_div;
+    uint frac_div = (uint)((clk_div - (float)int_div) * 256.0f);
+    pio_sm_set_clkdiv_int_frac(PIO_instance, SM_speed, int_div, frac_div);
 }
 
-void Stepper::moveSteps(long double steps)
+void Stepper::setSteps(long double steps)
 {
     if(isMoving == true) return;
     digitalWrite(DIR_PIN, (steps >= 0) ? HIGH : LOW);
@@ -301,12 +306,50 @@ void Stepper::moveSteps(long double steps)
     isMoving = true;
     if(!Enable) return;
     digitalWrite(ENABLE_PIN, LOW);
+
+    pio_sm_clear_fifos(PIO_instance, SM_counter);
+    pio_sm_put_blocking(PIO_instance, SM_counter, (uint32_t)abs(steps) + 1);
+
+    uint start_mask = (1u << this->SM_counter) | (1u << this->SM_speed);
+    
+    if(PIO_instance == pio0) pio0_start_mask |= start_mask;
+    else if(PIO_instance == pio1) pio1_start_mask |= start_mask;
+    else if(PIO_instance == pio2) pio2_start_mask |= start_mask;
+
+}
+
+void Stepper::moveThis(long double steps)
+{
+    if(isMoving == true) return;
+    digitalWrite(DIR_PIN, (steps >= 0) ? HIGH : LOW);
+    
+    this->futurePosition = (int)steps + this->position;
+    if(this->remaining_steps != 0)
+    {
+        steps += remaining_steps;
+        this->futurePosition = (int)steps + this->position;
+        remaining_steps = 0;
+    }
+    isMoving = true;
+    if(!Enable) return;
+    digitalWrite(ENABLE_PIN, LOW);
+
     pio_sm_set_enabled(PIO_instance, SM_counter, true);
     pio_sm_set_enabled(PIO_instance, SM_speed, true);
 
     pio_sm_clear_fifos(PIO_instance, SM_counter);
     pio_sm_put_blocking(PIO_instance, SM_counter, (uint32_t)abs(steps) + 1);
+    
+}
 
+void Stepper::moveSteps() 
+{
+    if (pio0_start_mask != 0) pio_set_sm_mask_enabled(pio0, pio0_start_mask, true);
+    if (pio1_start_mask != 0) pio_set_sm_mask_enabled(pio1, pio1_start_mask, true);
+    if (pio2_start_mask != 0) pio_set_sm_mask_enabled(pio2, pio2_start_mask, true);
+    pio0_start_mask = 0; 
+    pio1_start_mask = 0;
+    pio2_start_mask = 0;
 }
 
 void Stepper::PIO0_ISR_handler_static()
@@ -346,6 +389,7 @@ void Stepper::PIO_ISR_Handler()
 {
     if(pio_interrupt_get(this->PIO_instance, this->irq_num))
     {
+        pio_interrupt_clear(PIO_instance, irq_num);
         if(!pio_sm_is_rx_fifo_empty)
         {
             this->remaining_steps = pio_sm_get(PIO_instance, SM_counter);
@@ -355,11 +399,20 @@ void Stepper::PIO_ISR_Handler()
         this->isMoving = false;
         pio_sm_set_enabled(PIO_instance, SM_counter, false);
         pio_sm_set_enabled(PIO_instance, SM_speed, false);
-        pio_interrupt_clear(PIO_instance, irq_num);
         digitalWrite(ENABLE_PIN, HIGH);
     }
 }
-
+void Stepper::zero()
+{
+    long pos = (-1)*this->position;
+    this->moveThis(pos); 
+}
+void Stepper::setZero()
+{
+    this->position = 0;
+    this->remaining_steps = 0;
+    this->futurePosition = 0;
+}
 bool Stepper::moving()
 {
     return this->isMoving;

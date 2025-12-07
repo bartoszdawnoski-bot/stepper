@@ -1,37 +1,43 @@
-#ifndef GCOD_H
-#define GCOD_H
-#include <Arduino.h>
-#include <math.h>
+#define GCODE_PARSER_H
+#ifdef GCODE_PARSER_H
 
-const float STEPS_PER_UNIT_X = 1.0f;
-const float STEPS_PER_UNIT_Y = 1.0f;
-const float STEPS_PER_UNIT_Z = 1.0f;
+#include <GCodeParser.h>
+#include <WString.h>
+#include "stepper.h"
 
-struct StateMachine{
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
+class GCode {
+private:
+    GCodeParser parser;
 
-    float speedX = 0.0f;
-    float speedY = 0.0f;
-    float speedZ = 0.0f;
+    struct Factors {
+        const float steps_perMM_x = 100.0f; //wozek
+        const float steps_per_rotation_c = 200.0f; //wrzeciono
+        const float v_max_x = 100.0f; // predkosc maksymalna silnika X
+        const float v_max_y = 100.0f; // predkosc maksymalna silnika y
+        const float seconds_in_minute = 60.0f; // sekundy w minucie
+    };
 
-    long currentStepX = 0;
-    long currentStepY = 0;
-    long currentStepZ = 0;
+    long stepX = 0.0f;
+    long stepY = 0.0f;
+    float rotation = 0.0f;
+    float fSpeedX = 0.0f;
+    float fSpeedY = 0.0f;
+    
+    Factors factor;
+    Stepper* stepperX; // wozek
+    Stepper* stepperY; // wrzeciono
+    Stepper* stepperZ; // napinacz
 
-    int dirX = 1;
-    int dirY = 1;
-    int dirZ = 1;
+    void execute_parase();
 
-    float feed_rate = 0.0f;
-    bool absolute_mode = true;
+    long steps_from_MM(float mm, float stepsPerMM);
+    long steps_from_rotation(float rotation, float stepsPerRotation);
+
+public:
+    GCode(Stepper* stX, Stepper* stY, Stepper* stZ);
+    GCode(Stepper* stX, Stepper* stY);
+    void processLine(const String& line);
+    void move_complete();
 };
-
-extern StateMachine state; 
-
-void parse(String line);
-void plan_linear_move(float targetX, float targetY, float targetZ);
-bool get_value(String line, char key, float& value);
 
 #endif
