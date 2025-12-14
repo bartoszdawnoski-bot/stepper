@@ -4,23 +4,25 @@
 #include <Arduino.h>
 #include <MsgPack.h>
 
-//PC -> PICO
+// Struktura odbierana od PC (Komenda G-Code)
 struct GcodeCom{
-    uint8_t msgType;
-    String Gcode;
-    uint16_t length;
+    uint8_t msgType; //typ wiadomosci  
+    String Gcode; //tresc komendy
+    int id;//id komendy
+    bool is_last; // Flaga oznaczająca koniec przesyłania pliku
 
-    MSGPACK_DEFINE(msgType, Gcode, length);
+    // Makro biblioteki MsgPack definiujące, które pola mają być serializowane
+    MSGPACK_DEFINE(msgType, Gcode, id, is_last);
 };
 
-//PICO -> PC
+// Struktura wysyłana do PC (Status maszyny/Potwierdzenie)
 struct MachineStatus{
-    uint8_t msgType;
-    String state;
-    bool move_complete;
-    bool ack;
-
-    MSGPACK_DEFINE(msgType, state, move_complete, ack);
+    uint8_t msgType; //typ wiadomosci  
+    String state; //status nawijarki
+    int id; //id wykonanej komendy
+    bool ack; //ack 
+    // Makro biblioteki MsgPack
+    MSGPACK_DEFINE(msgType, state, id, ack);
 };
 
 

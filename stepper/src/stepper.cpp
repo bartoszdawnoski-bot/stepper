@@ -1,12 +1,14 @@
 #include "stepper.h"
 #include <hardware/clocks.h>
 #include <hardware/irq.h>
-#include "stepper.pio.h"
+#include "stepper.pio.h" // Wygenerowany plik z asemblera PIO
 
+// Inicjalizacja statycznych tablic instancji
 Stepper* Stepper::PIO0_Instance[LENGHT] = {nullptr, nullptr};
 Stepper* Stepper::PIO1_Instance[LENGHT] = {nullptr, nullptr};
 Stepper* Stepper::PIO2_Instance[LENGHT] = {nullptr, nullptr};
 
+// Maski bitowe do synchronicznego startu silników
 uint Stepper::pio0_start_mask = 0;
 uint Stepper::pio1_start_mask = 0;
 uint Stepper::pio2_start_mask = 0;
@@ -86,6 +88,8 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold, 
         this->irq_num = 1; 
     }
 }
+
+// Konstruktor główny
 Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold)
 :PIO_instance(pio_instance),
  STEP_PIN(step),
@@ -153,8 +157,9 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold)
     }
 
     pinMode(ENABLE_PIN, OUTPUT);
-    digitalWrite(ENABLE_PIN, HIGH);
+    digitalWrite(ENABLE_PIN, HIGH); // Domyślnie wyłącz silnik
     this->sys_clock = (float)clock_get_hz(clk_sys);
+    // Rejestracja instancji w odpowiedniej tablicy PIO (dla obsługi przerwań analogicznie dla pio1 i pio2)
     if(PIO_instance == pio0)
     {
         for(int i = 0; i < LENGHT; i++)
@@ -194,7 +199,8 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold)
         return;
     }
 
-
+    // Przypisanie numeru przerwania w zależności od wybranego programu PIO
+    // Program 1 używa IRQ 0, Program 2 używa IRQ 1
     if(Program_select == PROGRAM_1)
     {
         if(PIO_instance == pio0)  this->IRQ = PIO0_IRQ_0;
@@ -211,8 +217,10 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold)
     }
 }
 
+// Inicjalizacja State Machine (SM) w PIO
 bool Stepper::init()
 {
+    // Załaduj program asemblerowy do pamięci instrukcji PIO
     if(Program_select == PROGRAM_1)
     {
         this->offset_counter = pio_add_program(PIO_instance, &step1_counter_program);
@@ -229,10 +237,12 @@ bool Stepper::init()
         return false;
     }
 
+    // Zarezerwuj nieużywane State Machines
     SM_counter = pio_claim_unused_sm(PIO_instance, true);
     SM_speed = pio_claim_unused_sm(PIO_instance, true);
     if(SM_counter < 0 || SM_speed < 0) return false;
 
+    // Inicjalizacja maszyn stanów z odpowiednimi pinami
     if(Program_select == PROGRAM_1)
     {
         step1_counter_program_init(PIO_instance, SM_counter, offset_counter, STEP_PIN, HOLD_PIN, sys_clock);
@@ -252,6 +262,7 @@ bool Stepper::init()
     pinMode(DIR_PIN, OUTPUT);
     digitalWrite(DIR_PIN, LOW);
 
+    // Konfiguracja przerwań (handler static)
     if(PIO_instance == pio0)
     {
         irq_set_exclusive_handler(IRQ, PIO0_ISR_handler_static);
@@ -268,6 +279,7 @@ bool Stepper::init()
         irq_set_enabled(IRQ, true);
     }
 
+    // Włączenie źródła przerwania w PIO
     if(IRQ == PIO0_IRQ_0 || IRQ == PIO1_IRQ_0 || IRQ == PIO2_IRQ_0)
     {
         pio_set_irq0_source_enabled(PIO_instance, pis_interrupt0, true);
@@ -277,6 +289,7 @@ bool Stepper::init()
         pio_set_irq1_source_enabled(PIO_instance, pis_interrupt1, true);
     }
 
+    // Maszyny stanów są na razie wyłączone, czekają na start
     pio_sm_set_enabled(PIO_instance, SM_counter, false);
     pio_sm_set_enabled(PIO_instance, SM_speed, false);
 
@@ -284,18 +297,23 @@ bool Stepper::init()
     return true;
 }
 
+// Ustawianie prędkości poprzez dzielnik zegara PIO
 void Stepper::setSpeed(float steps_per_second)
 {
     if(steps_per_second <= 0.0f) steps_per_second = 1.0f;
 
-    const float delay_loop = 69.0f;
+    // Obliczenie dzielnika zegara w oparciu o liczbę cykli w pętli asemblera PIO
+    const float delay_loop = 69.0f; // Liczba cykli w programie PIO na jeden krok
     float clk_div = this->sys_clock / (delay_loop * steps_per_second);
     if (clk_div < 1.0f) clk_div = 1.0f;
+
+    // Ustawienie dzielnika (część całkowita i ułamkowa)
     uint int_div = (uint)clk_div;
     uint frac_div = (uint)((clk_div - (float)int_div) * 256.0f);
     pio_sm_set_clkdiv_int_frac(PIO_instance, SM_speed, int_div, frac_div);
 }
 
+// Ustawienie liczby kroków do wykonania (przygotowanie do ruchu)
 void Stepper::setSteps(long double steps)
 {
     if(isMoving == true) 
@@ -303,9 +321,14 @@ void Stepper::setSteps(long double steps)
         if(Serial) Serial.println("[STEPPER] Stepper motor is moving");
         return;
     }
+
+    // Ustawienie kierunku
     digitalWrite(DIR_PIN, (steps >= 0) ? HIGH : LOW);
     
+    // Obliczenie pozycji docelowej
     this->futurePosition = (int)steps + this->position;
+
+    // Korekta o pozostałe kroki (jeśli poprzedni ruch był przerwany)
     if(this->remaining_steps != 0)
     {
         steps += remaining_steps;
@@ -318,11 +341,13 @@ void Stepper::setSteps(long double steps)
        if(Serial) Serial.println("[STEPPER] Stepper motor is not active"); 
        return; 
     } 
-    digitalWrite(ENABLE_PIN, LOW);
+    digitalWrite(ENABLE_PIN, LOW); // Włącz sterownik silnika
 
+    // Wyczyść FIFO i wpisz liczbę kroków do SM licznika
     pio_sm_clear_fifos(PIO_instance, SM_counter);
     pio_sm_put_blocking(PIO_instance, SM_counter, (uint32_t)abs(steps) + 1);
 
+    // Przygotuj maskę startową dla synchronicznego uruchomienia
     uint start_mask = (1u << this->SM_counter) | (1u << this->SM_speed);
     
     if(PIO_instance == pio0) pio0_start_mask |= start_mask;
@@ -363,6 +388,8 @@ void Stepper::moveThis(long double steps)
     
 }
 
+// Statyczna metoda uruchamiająca wszystkie przygotowane silniki jednocześnie
+// Włącz wybrane State Machines w jednym cyklu zegara
 void Stepper::moveSteps() 
 {
     if (pio0_start_mask != 0) pio_set_sm_mask_enabled(pio0, pio0_start_mask, true);
@@ -405,18 +432,22 @@ void Stepper::PIO2_ISR_handler_static()
         }
     }
 }
-
+// Handler przerwania - wywoływany przez PIO gdy licznik kroków dojdzie do 0 albo pojawi sie przerwanie
 void Stepper::PIO_ISR_Handler()
 {
     if(pio_interrupt_get(this->PIO_instance, this->irq_num))
     {
         pio_interrupt_clear(PIO_instance, irq_num);
+        // Sprawdź, czy zostały jakieś kroki w FIFO (na wypadek błędu/przerwania)
         if(!pio_sm_is_rx_fifo_empty)
         {
             this->remaining_steps = pio_sm_get(PIO_instance, SM_counter);
         }
+        // Aktualizacja pozycji
         this->position = this->futurePosition - this->remaining_steps;
         this->isMoving = false;
+
+        // Wyłącz State Machines i silnik
         pio_sm_set_enabled(PIO_instance, SM_counter, false);
         pio_sm_set_enabled(PIO_instance, SM_speed, false);
         digitalWrite(ENABLE_PIN, HIGH);
