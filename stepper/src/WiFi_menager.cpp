@@ -1,7 +1,12 @@
 #include "Wifi_menger.h"
 
-WiFiMenager::WiFiMenager(char* ssid, char* pass, int port, int udp):
-ssid(ssid), password(pass), port(port), udp_port(udp), serverIP(IPAddress(0,0,0,0)) {}
+WiFiMenager::WiFiMenager(char* ssid, char* pass):
+ssid(ssid), password(pass), port(0), serverIP(IPAddress(0,0,0,0)), message_callback(nullptr) {}
+
+void WiFiMenager::set_callback(on_message_callback ms)
+{
+    this->message_callback = ms;
+}
 
 bool WiFiMenager::init()
 {
@@ -16,116 +21,128 @@ bool WiFiMenager::init()
     WiFi.begin(ssid, password);
 
     int retry = 0;
-    while (WiFi.status() != WL_CONNECTED && retry <= 20)
+    while (WiFi.status() != WL_CONNECTED && retry <= 60)
     {
         delay(500);
-        if(Serial) Serial.print('.'); 
+        if(Serial)
+        {
+           Serial.print('.');
+        }  
         retry++;
     }
     if(Serial) Serial.println();
-    
     if(WiFi.status() == WL_CONNECTED)
     {
         if(Serial)
         {
             Serial.print("[WIFI] Connected: ");
             Serial.println(WiFi.localIP());
+            Serial.print("[WIFI] RSSI: ");
+            Serial.println(WiFi.RSSI());
         }
-        if(udp.begin(udp_port)) return true;
-        else
+        if(MDNS.begin(this->service_name))
         {
-           if(Serial)Serial.print("[WIFI] UDP not init");
-           return false;
+            if(Serial) Serial.println("[mDMS] the service has been activated");
         }
+
+        client.onEvent([this](WStype_t type, uint8_t* payload, size_t length) {
+            this->web_socket_events(type, payload, length);
+        });
+
+        client.setReconnectInterval(this->interval);
+        return true;
     }
     else
     {
-        if(Serial)Serial.print("[WIFI] Connection error with the router");
+        if(Serial) {
+            Serial.print("[WIFI] Connection FAILED. Status code: ");
+            Serial.println(WiFi.status());
+            Serial.println("[WIFI] Error codes: [1 = No network], [4 = Wrong password/Error], [6 = Disconnected]");
+        }
         return false;
     }
 }
 
 bool WiFiMenager::find_server()
 {
-    if(this->client.connected()) return true;
+    if(this->serverIP != IPAddress(0,0,0,0)) return true;
+    if(WiFi.status() !=  WL_CONNECTED) return false;
 
-    udp.beginPacket(IPAddress(255, 255, 255, 255), this->udp_port);
-    udp.write((uint8_t*) this->discovery_msg, 15);
-    udp.endPacket();
+    if(Serial) Serial.println("[mDNS] looking for a server");
+    int n = MDNS.queryService(this->server_name, this->server_protocol);
 
-    unsigned long start = millis();
-    while(millis() - start <= 200)
+    if(n > 0)
     {
-        int size = udp.parsePacket();
-        if(size) 
-        {
-            char packet[255];
-            int len = udp.read(packet, 255);
-            if(len > 0) packet[len] = 0;
+        serverIP = MDNS.IP(0);
+        port = MDNS.port(0);
+        if(Serial) {
+            Serial.print("[mDNS] Server found: ");
+            Serial.println(serverIP);
+            Serial.print("[mDNS] Port: ");
+            Serial.println(port);
+        }
+        return true;
+    }
 
-            if(strstr(packet, this->server_response))
+    return false;
+}
+
+void WiFiMenager::run()
+{
+    if(serverIP == IPAddress(0,0,0,0))
+    {
+        static unsigned long last_search = 0;
+        if(millis() - last_search > 5000)
+        {
+            last_search = millis();
+            if(find_server())
             {
-                this->serverIP = udp.remoteIP();
-                if(Serial) 
-                {
-                    Serial.print("[UDP] Server found: ");
-                    Serial.println(serverIP);
-                }
-                return true;
+                client.begin(serverIP, port, "/");
             }
         }
     }
-    return false;
+    else
+    {
+        client.loop();
+    }
+    MDNS.update();
 }
 
-bool WiFiMenager::connect_to_pc()
+bool WiFiMenager::is_connected()
 {
-    if(this->client.connected()) return true;
+    return client.isConnected();
+}
 
-    if(serverIP == IPAddress(0,0,0,0))
+void WiFiMenager::web_socket_events(WStype_t type, uint8_t* payload, size_t length)
+{
+    switch(type)
     {
-        if (!this->find_server()) return false;
+        case WStype_DISCONNECTED:
+            if(Serial) Serial.println("[WeebSocket] Disconnected");
+        break;
+        case WStype_CONNECTED:
+            if(Serial) Serial.println("[WeebSocket] Connected");
+        break;
+        case WStype_TEXT:
+        case WStype_BIN:
+            if(message_callback != nullptr)
+            {
+                message_callback(payload, length, type);
+            }
+        break;
     }
+}
 
-    if(Serial) Serial.print("[WIFI] TCP connecting... ");
-    if(client.connect(serverIP, port))
+bool WiFiMenager::send_msgpack(MachineStatus meassage,  MsgPack::Packer& packer)
+{
+    if(!this->is_connected()) return false;
+    packer.clear();
+    packer.serialize(meassage);
+    if(client.sendBIN(packer.data(), packer.size())) 
     {
-        if(Serial) Serial.println("OK");
+        if(Serial) Serial.println("[WeebSocket] Message sent");
         return true;
     }
+    if(Serial) Serial.println("[WeebSocket] Message NOT sent");
     return false;
-}
-
-bool WiFiMenager::has_data() 
-{
-    return this->client.connected() && this->client.available();
-}
-
-int WiFiMenager::read_packet(uint8_t* buffer, size_t size)
-{
-    if(has_data())
-    {
-        return this->client.read(buffer, size);
-    }
-    return 0;
-}
-
-void WiFiMenager::send_status(char* state, float progress)
-{
-    if(this->client.connected())
-    {
-        client.print(state);
-        client.print(" : ");
-        client.println(progress, 1);
-    }
-}
-
-void WiFiMenager::send_ACK()
-{
-    if(this->client.connected()) client.print("ACK");
-}
-
-void WiFiMenager::stop()
-{
-    this->client.stop();
 }

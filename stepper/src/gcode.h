@@ -28,7 +28,7 @@ private:
     Stepper* stepperY; // wrzeciono
     Stepper* stepperZ; // napinacz
 
-    void execute_parase();
+    void execute_parse();
 
     long steps_from_MM(float mm, float stepsPerMM);
     long steps_from_rotation(float rotation, float stepsPerRotation);

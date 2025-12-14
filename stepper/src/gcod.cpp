@@ -8,7 +8,8 @@ stepperZ(stZ)
 
 GCode::GCode(Stepper* stX, Stepper* stY):
 stepperX(stX),
-stepperY(stY)
+stepperY(stY),
+stepperZ(nullptr)
 {}
 
 long GCode::steps_from_MM(float mm, float stepsPerMM)
@@ -21,9 +22,13 @@ long GCode::steps_from_rotation(float rotation, float stepsPerRotation)
     return (long)(rotation * stepsPerRotation);
 }
 
-void GCode::execute_parase()
+void GCode::execute_parse()
 {
-    if(parser.NoWords()) return;
+    if(parser.NoWords()) 
+    {
+       if(Serial) Serial.println("[PARSER] No gcode entered"); 
+       return;  
+    }
     else if(parser.HasWord('G'))
     {
         int num = (int)parser.GetWordValue('G');
@@ -40,7 +45,6 @@ void GCode::execute_parase()
                 stepY = steps_from_rotation(rotation, factor.steps_per_rotation_c);
             }
             
-
             if (parser.HasWord('F'))
             {
                 float feed_rate_mm_min = parser.GetWordValue('F');
@@ -76,31 +80,37 @@ void GCode::execute_parase()
                     fSpeedY *= final_correction_ratio;
                     stepperX->setSpeed(fSpeedX);
                     stepperY->setSpeed(fSpeedY);
-
                 }
                 else
                 {
+                    if(Serial) Serial.println("[GCODE] No F value given speed set to 0"); 
                     stepperX->setSpeed(0);
                     stepperY->setSpeed(0);
                 }
             }
-
             if(stepX != 0 || stepY != 0)
             {
-                Serial.print("Silnik X speed: "); Serial.println(fSpeedX);
-                Serial.print("Silnik Y speed: "); Serial.println(fSpeedY);
-                Serial.print("Silnik X kroki: "); Serial.println(stepX);
-                Serial.print("Silnik Y kroki: "); Serial.println(stepY);
+                if(Serial)
+                {
+                    Serial.print("Motor X speed: "); Serial.println(fSpeedX);
+                    Serial.print("Motor Y speed: "); Serial.println(fSpeedY);
+                    Serial.print("Motor X steeps: "); Serial.println(stepX);
+                    Serial.print("Motor Y steeps: "); Serial.println(stepY);
+                }
+                
                 stepperX->setSteps(stepX);
                 stepperY->setSteps(stepY);
                 Stepper::moveSteps();
             }
-
         }
         else if(num == 28)
         {
             stepperX->zero();
             stepperY->zero();
+        }
+        else
+        {
+            if(Serial) Serial.println("[GCODE] Unknown command"); 
         }
     }
 }
@@ -113,7 +123,7 @@ void GCode::processLine(const String& line)
     line.toCharArray(buffer, 128);
 
     parser.ParseLine(buffer);
-    execute_parase();
+    this->execute_parse();
 }
 
 void GCode::move_complete()

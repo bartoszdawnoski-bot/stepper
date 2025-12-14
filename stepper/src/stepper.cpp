@@ -148,6 +148,7 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold)
     }
     else
     {
+        if(Serial) Serial.println("[STEPPER] PIO is full");
         return;
     }
 
@@ -189,6 +190,7 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold)
     }
     else
     {
+        if(Serial) Serial.println("[STEPPER] Failed to register stepper motor in PIO");
         return;
     }
 
@@ -223,6 +225,7 @@ bool Stepper::init()
     }
     else
     {
+        if(Serial) Serial.println("[STEPPER] No program assigned");
         return false;
     }
 
@@ -242,6 +245,7 @@ bool Stepper::init()
     }
     else
     {
+        if(Serial) Serial.println("[STEPPER] No program assigned");
         return false;
     }
 
@@ -276,6 +280,7 @@ bool Stepper::init()
     pio_sm_set_enabled(PIO_instance, SM_counter, false);
     pio_sm_set_enabled(PIO_instance, SM_speed, false);
 
+    if(Serial) Serial.println("[STEPPER] Stepper motor initialized");
     return true;
 }
 
@@ -293,7 +298,11 @@ void Stepper::setSpeed(float steps_per_second)
 
 void Stepper::setSteps(long double steps)
 {
-    if(isMoving == true) return;
+    if(isMoving == true) 
+    {
+        if(Serial) Serial.println("[STEPPER] Stepper motor is moving");
+        return;
+    }
     digitalWrite(DIR_PIN, (steps >= 0) ? HIGH : LOW);
     
     this->futurePosition = (int)steps + this->position;
@@ -304,7 +313,11 @@ void Stepper::setSteps(long double steps)
         remaining_steps = 0;
     }
     isMoving = true;
-    if(!Enable) return;
+    if(!Enable)
+    {
+       if(Serial) Serial.println("[STEPPER] Stepper motor is not active"); 
+       return; 
+    } 
     digitalWrite(ENABLE_PIN, LOW);
 
     pio_sm_clear_fifos(PIO_instance, SM_counter);
@@ -320,7 +333,11 @@ void Stepper::setSteps(long double steps)
 
 void Stepper::moveThis(long double steps)
 {
-    if(isMoving == true) return;
+    if(isMoving == true) 
+    {
+        if(Serial) Serial.println("[STEPPER] Stepper motor is moving");
+        return;
+    }
     digitalWrite(DIR_PIN, (steps >= 0) ? HIGH : LOW);
     
     this->futurePosition = (int)steps + this->position;
@@ -331,7 +348,11 @@ void Stepper::moveThis(long double steps)
         remaining_steps = 0;
     }
     isMoving = true;
-    if(!Enable) return;
+    if(!Enable)
+    {
+       if(Serial) Serial.println("[STEPPER] Stepper motor is not active"); 
+       return; 
+    } 
     digitalWrite(ENABLE_PIN, LOW);
 
     pio_sm_set_enabled(PIO_instance, SM_counter, true);
@@ -393,7 +414,6 @@ void Stepper::PIO_ISR_Handler()
         if(!pio_sm_is_rx_fifo_empty)
         {
             this->remaining_steps = pio_sm_get(PIO_instance, SM_counter);
-
         }
         this->position = this->futurePosition - this->remaining_steps;
         this->isMoving = false;

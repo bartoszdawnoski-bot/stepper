@@ -1,60 +1,115 @@
 #include "gcode.h"
+#include "SD_controller.h"
+#include "Wifi_menger.h"
+#include "MsgPack.h"
+#include "packets.h"
+#include "pins.h"
 
-PIO pio = pio0; 
+//przypisanie danych dla wifi
+char TEST_SSID[] = "Internet";
+char TEST_PASS[] = "12345678";
 
-#define ENABLE_PIN 5
-#define STEP_PIN  1
-#define DIR_PIN   0 
-#define HOLD_PIN  6
+//konfiguracja bufforow 
+const int BUFFER_SIZE = 1;
 
-#define ENABLE_PIN2 9
-#define STEP_PIN2  8
-#define DIR_PIN2   7 
-#define HOLD_PIN2  10
+//dla Gcodu (wifi -> silniki)
+GcodeCom comandQueue[BUFFER_SIZE];
+volatile int cmdhead = 0; // dla core 1
+volatile int cmdtail = 0; // dla core 2
 
+//feedback (silniki -> wifi)
+MachineStatus ackQueue[BUFFER_SIZE];
+volatile int ackhead = 0; // dla core 1
+volatile int acktail = 0; // dla core 2
 
-Stepper motorA(pio, STEP_PIN, DIR_PIN, ENABLE_PIN ,HOLD_PIN);
-Stepper motorB(pio, STEP_PIN2, DIR_PIN2, ENABLE_PIN2 ,HOLD_PIN2);
+//funkcje pomocnicze dal bufforow
+bool is_cmd_full() { return ((cmdhead + 1) % BUFFER_SIZE) == cmdtail; }
+bool is_ack_full() { return ((ackhead + 1) % BUFFER_SIZE) == acktail; }
 
+bool is_cmd_empty() { return cmdhead == cmdtail; }
+bool is_ack_empty() { return ackhead == acktail; }
+
+//deklaracje obiektow
+MsgPack::Unpacker unpacker;
+MsgPack::Packer packer;
+Stepper motorA(PIO_SELECT, STEP_PIN, DIR_PIN, ENABLE_PIN ,HOLD_PIN);
+Stepper motorB(PIO_SELECT, STEP_PIN2, DIR_PIN2, ENABLE_PIN2 ,HOLD_PIN2);
 GCode procesor(&motorA, &motorB);
+SDController sdController(CS_PIN, DD_PIN, CLK_PIN, CMD_PIN);
+WiFiMenager wifi(TEST_SSID, TEST_PASS);
 
-String inputString = "";
+//callback wifi
+void on_data_received(uint8_t *payload, size_t length, WStype_t type) {
+    if (type == WStype_BIN) {
+        unpacker.feed(payload, length);
+        GcodeCom packet;
 
-void setup() {
+        while(unpacker.deserialize(packet))
+        {
+            if(!is_cmd_full())
+            {
+                comandQueue[cmdhead] = packet;
+                cmdhead = ( ( cmdhead + 1 ) % BUFFER_SIZE );
+            }
+            else
+            {
+                if(Serial) Serial.println("[Core 1] Buffer is full");
+            }
+        }
+    }
+}
+
+void setup() 
+{
     Serial.begin(115200);
     while(!Serial){delay(10);}
     delay(2000); 
-    Serial.println("--- G-CODE TESTER---");
-
-    if (!motorA.init() || !motorB.init()) 
+    if(motorA.init() && motorB.init())
     {
-        Serial.println("BLAD: Nie udalo sie zainicjowac silnikow (PIO/SM).");
-        while(1);
+        Serial.println("[Core 0] Steppers are ready");
     }
-    Serial.println("Silniki A i B zainicjowane poprawnie.");
-    Serial.println("Wózek: X [mm] | Wrzeciono: Y/C [obroty]");
-    Serial.println("Wpisz komendę (np. G1 X10 F5 Y2.5)");
-    motorA.setEnable(true);
-    motorB.setEnable(true);
+    else
+    {
+        Serial.println("[Core 0] restart the winder or check the motors");
+        while(true) { delay(1); }
+    }
 }
 
-void loop() {
-    while (Serial.available()) 
+void setup1()
+{
+    while(!wifi.init()) { delay(1); }
+    wifi.set_callback(on_data_received);
+    Serial.println("[Core 1] WIFI ready");
+}
+
+void loop() 
+{
+    if(!is_cmd_empty)
     {
-        char inChar = (char)Serial.read();
-        inputString += inChar;
-        if (inChar == '\n' || inChar == '\r') 
+        GcodeCom task = comandQueue[cmdtail];
+        cmdtail = (cmdtail + 1) % BUFFER_SIZE;
+        if(task.Gcode.length() > 0)
         {
-            inputString.trim(); 
-            if (inputString.length() > 0) 
-            {
-                
-                Serial.print("Odebrano: ");
-                Serial.println(inputString);
-                procesor.processLine(inputString);
-                procesor.move_complete();
-            }
-            inputString = "";
+            procesor.processLine(task.Gcode);
+            procesor.move_complete();
+        } 
+        if(!is_ack_full)
+        {
+            MachineStatus ack;
+            //przypisac wartosci do wyslania !!
+            ackQueue[ackhead] = ack;
+            ackhead = (ackhead + 1) % BUFFER_SIZE;
         }
+    }   
+}
+
+void loop1() 
+{
+    wifi.run();
+    if(!is_ack_empty)
+    {
+        MachineStatus ack_to_send = ackQueue[acktail];
+        acktail = (acktail + 1) % BUFFER_SIZE;
+        wifi.send_msgpack(ack_to_send, packer);
     }
 }
