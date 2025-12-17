@@ -24,11 +24,11 @@ private:
      * @brief Stałe konfiguracyjne kinematyki maszyny.
      */
     struct Factors {
-        const float steps_perMM_x = 100.0f; //wozek
-        const float steps_per_rotation_c = 200.0f; //wrzeciono
-        const float v_max_x = 100.0f; // predkosc maksymalna silnika X
-        const float v_max_y = 100.0f; // predkosc maksymalna silnika y
-        const float seconds_in_minute = 60.0f; // sekundy w minucie
+        float steps_perMM_x = 100.0f; //wozek
+        float steps_per_rotation_c = 200.0f; //wrzeciono
+        float v_max_x = 100.0f; // predkosc maksymalna silnika X
+        float v_max_y = 100.0f; // predkosc maksymalna silnika y
+        float seconds_in_minute = 60.0f; // sekundy w minucie
     };
 
     // Zmienne stanu bieżącego ruchu
@@ -37,7 +37,10 @@ private:
     float rotation = 0.0f;
     float fSpeedX = 0.0f;
     float fSpeedY = 0.0f;
-    
+    bool relative_mode = false;
+    long last_stepX = 0.0f;
+    long last_stepY = 0.0f;
+
     Factors factor;
     Stepper* stepperX; ///< Wskaźnik na silnik wózka.
     Stepper* stepperY; ///< Wskaźnik na silnik wrzeciona.
@@ -74,6 +77,8 @@ public:
      * Funkcja niezbędna do synchronizacji bufora z fizycznym ruchem.
      */
     void move_complete();
+
+    void update_settings(float sx, float sy, float st_mm, float st_rot);
 };
 
 #endif

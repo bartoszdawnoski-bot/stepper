@@ -1,0 +1,6 @@
+{
+  "max_speed_x": 100.0,
+  "max_speed_y": 200.0,
+  "steps_mm": 100.0,
+  "steps_rot": 200.0
+}

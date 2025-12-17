@@ -30,113 +30,113 @@ long GCode::steps_from_rotation(float rotation, float stepsPerRotation)
 void GCode::execute_parse()
 {
     // Jeśli linia pusta, wyjdź
-    if(parser.NoWords()) 
-    {
-       if(Serial) Serial.println("[PARSER] No gcode entered"); 
-       return;  
-    }
-    // Obsługa komend G (Ruch)
-    else if(parser.HasWord('G'))
+    if(parser.NoWords()) return;
+
+    // Statyczna zmienna do zapamiętywania prędkości między wywołaniami (Modalność F)
+    // Domyślnie np. 500 mm/min
+    static float current_feedrate_mm_min = 500.0f;
+
+    // Obsługa komend G
+    if(parser.HasWord('G'))
     {
         int num = (int)parser.GetWordValue('G');
-        // Komendy G0 i G1 (Ruch liniowy)
-        if(num == 1 || num == 0)
-        {
-            // Pobierz współrzędną X
-            if(parser.HasWord('X'))
-            {
-                stepX = steps_from_MM(parser.GetWordValue('X'), factor.steps_perMM_x);
-            }
-
-            // Pobierz współrzędną Y (jako obrót)
-            if (parser.HasWord('Y'))
-            {
-                rotation = parser.GetWordValue('Y');
-                stepY = steps_from_rotation(rotation, factor.steps_per_rotation_c);
-            }
-            
-            // Obsługa prędkości F (Feedrate)
-            if (parser.HasWord('F'))
-            {
-                
-                float feed_rate_mm_min = parser.GetWordValue('F');
-                if (stepX != 0 || stepY != 0)
-                {
-                    // Zabezpieczenie przed zerową prędkością
-                    if (feed_rate_mm_min <= 0.0f) feed_rate_mm_min = 1.0f;
-
-                    // Przeliczenie mm/min na mm/sec
-                    float speed_mm_sec = feed_rate_mm_min / factor.seconds_in_minute;
-
-                    // Obliczenie dystansów dla każdej osi w jednostkach logicznych
-                    float dist_mm_x = (float)abs(stepX) / factor.steps_perMM_x;
-                    float dist_unit_y = (float)abs(stepY) / factor.steps_per_rotation_c;
-
-                    // Obliczenie całkowitego dystansu wektora ruchu
-                    float total_dist_mm = sqrtf(dist_mm_x * dist_mm_x + dist_unit_y * dist_unit_y);
-                    if (total_dist_mm > 0.0f)
-                    {
-                        // Rozkład prędkości na osie proporcjonalnie do dystansu
-                        fSpeedX = speed_mm_sec * factor.steps_perMM_x * (dist_mm_x / total_dist_mm);
-                        fSpeedY = speed_mm_sec * factor.steps_per_rotation_c * (dist_unit_y / total_dist_mm);
-                    }
-
-                    // Ograniczanie prędkości do wartości maksymalnych zdefiniowanych w Factors
-                    float ratio_X = 1.0f;
-                    float ratio_Y = 1.0f;
-
-                    if (fSpeedX > factor.v_max_x) {
-                        ratio_X = factor.v_max_x / fSpeedX;
-                    }
-                     if (fSpeedY > factor.v_max_y) {
-                        ratio_Y = factor.v_max_y / fSpeedY;
-                    }
-
-                    // Wybierz najmniejszy współczynnik korekcji, aby zachować synchronizację osi
-                    float final_correction_ratio = fminf(ratio_X, ratio_Y);
-
-                    fSpeedX *= final_correction_ratio;
-                    fSpeedY *= final_correction_ratio;
-
-                    // Ustaw prędkości silników
-                    stepperX->setSpeed(fSpeedX);
-                    stepperY->setSpeed(fSpeedY);
-                }
-                else
-                {
-                    // Jeśli brak ruchu, wyzeruj prędkość
-                    if(Serial) Serial.println("[GCODE] No F value given speed set to 0"); 
-                    stepperX->setSpeed(0);
-                    stepperY->setSpeed(0);
-                }
-            }
-            // Jeśli jest ruch do wykonania
-            if(stepX != 0 || stepY != 0)
-            {
-                if(Serial)
-                {
-                    Serial.print("Motor X speed: "); Serial.println(fSpeedX);
-                    Serial.print("Motor Y speed: "); Serial.println(fSpeedY);
-                    Serial.print("Motor X steeps: "); Serial.println(stepX);
-                    Serial.print("Motor Y steeps: "); Serial.println(stepY);
-                }
-                // Ustaw kroki dla silników (ale jeszcze nie ruszaj)
-                stepperX->setSteps(stepX);
-                stepperY->setSteps(stepY);
-
-                // Uruchom wszystkie silniki jednocześnie (synchronizacja przez PIO)
-                Stepper::moveSteps();
-            }
-        }
-        // Komenda G28 (Bazowanie / Home)
-        else if(num == 28)
+        if (num == 90) { relative_mode = false; return; }
+        if (num == 91) { relative_mode = true; return; }
+        if(num == 28)
         {
             stepperX->zero();
             stepperY->zero();
+            last_stepX = 0;
+            last_stepY = 0;
+            if(Serial) Serial.println("[GCODE] Homed");
+            return;
         }
-        else
+        if(num == 1 || num == 0)
         {
-            if(Serial) Serial.println("[GCODE] Unknown command"); 
+            //Aktualizacja prędkości 
+            if (parser.HasWord('F'))
+            {
+                float val = parser.GetWordValue('F');
+                if (val > 0.0f) current_feedrate_mm_min = val;
+            }
+
+            // Obliczanie celu 
+            long targetStepX = last_stepX;
+            long targetStepY = last_stepY;
+
+            if(parser.HasWord('X'))
+            {
+                float val = parser.GetWordValue('X');
+                long steps = steps_from_MM(val, factor.steps_perMM_x);
+                if (relative_mode) targetStepX = last_stepX + steps;
+                else targetStepX = steps;
+            }
+
+            if (parser.HasWord('Y'))
+            {
+                float val = parser.GetWordValue('Y');
+                long steps = steps_from_rotation(val, factor.steps_per_rotation_c);
+                if (relative_mode) targetStepY = last_stepY + steps;
+                else targetStepY = steps;
+            }
+            
+            // C. Obliczanie DELTA (ile kroków do zrobienia teraz)
+            long deltaX = abs(targetStepX - last_stepX);
+            long deltaY = abs(targetStepY - last_stepY);
+
+            // Jeśli brak ruchu, kończymy
+            if (deltaX == 0 && deltaY == 0) return;
+
+            // Zamiana F (mm/min) na mm/sec
+            float speed_mm_sec = current_feedrate_mm_min / factor.seconds_in_minute;
+
+            //długość wektora w mm
+            float dist_mm_x = (float)deltaX / factor.steps_perMM_x;
+            float dist_unit_y = (float)deltaY / factor.steps_per_rotation_c; // Zakładamy jednostkę obrotu jako ekwiwalent
+            
+            // Całkowita droga do przebycia
+            float total_dist_mm = sqrtf(dist_mm_x * dist_mm_x + dist_unit_y * dist_unit_y);
+
+            float fSpeedX = 0;
+            float fSpeedY = 0;
+
+            if (total_dist_mm > 0.0001f) // Zabezpieczenie przed dzieleniem przez zero
+            {
+                // Prędkość wypadkowa rozłożona na osie Vx = V * (dx / d)
+                fSpeedX = speed_mm_sec * factor.steps_perMM_x * (dist_mm_x / total_dist_mm);
+                fSpeedY = speed_mm_sec * factor.steps_per_rotation_c * (dist_unit_y / total_dist_mm);
+            }
+
+            //Ograniczenia prędkości 
+            float ratio_X = 1.0f;
+            float ratio_Y = 1.0f;
+
+            if (fSpeedX > factor.v_max_x) ratio_X = factor.v_max_x / fSpeedX;
+            if (fSpeedY > factor.v_max_y) ratio_Y = factor.v_max_y / fSpeedY;
+
+            // Skalujemy obie osie tak samo
+            float correction = fminf(ratio_X, ratio_Y);
+            fSpeedX *= correction;
+            fSpeedY *= correction;
+
+            // Wykonanie
+            stepperX->setSpeed(fSpeedX);
+            stepperY->setSpeed(fSpeedY);
+            
+            stepperX->setSteps(targetStepX);
+            stepperY->setSteps(targetStepY);
+
+            if(Serial) 
+            {
+                Serial.print("MOVE -> X:"); Serial.print(targetStepX);
+                Serial.print(" Y:"); Serial.print(targetStepY);
+                Serial.print(" F:"); Serial.println(current_feedrate_mm_min);
+            }
+
+            Stepper::moveSteps();
+            //Zapamiętanie pozycji
+            last_stepX = targetStepX;
+            last_stepY = targetStepY;
         }
     }
 }
@@ -169,4 +169,11 @@ void GCode::move_complete()
     float rotation = 0.0f;
     float fSpeedX = 0.0f;
     float fSpeedY = 0.0f;
+}
+
+void GCode::update_settings(float sx, float sy, float st_mm, float st_rot) {
+    factor.v_max_x = sx;
+    factor.v_max_y = sy;
+    factor.steps_perMM_x = st_mm;
+    factor.steps_per_rotation_c = st_rot;
 }

@@ -441,6 +441,7 @@ void Stepper::PIO_ISR_Handler()
         // Sprawdź, czy zostały jakieś kroki w FIFO (na wypadek błędu/przerwania)
         if(!pio_sm_is_rx_fifo_empty)
         {
+            this->setZero();
             this->remaining_steps = pio_sm_get(PIO_instance, SM_counter);
         }
         // Aktualizacja pozycji
@@ -461,6 +462,7 @@ void Stepper::zero()
 void Stepper::setZero()
 {
     this->position = 0;
+
     this->remaining_steps = 0;
     this->futurePosition = 0;
 }
