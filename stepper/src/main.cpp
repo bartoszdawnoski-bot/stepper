@@ -1,7 +1,7 @@
 #include "gcode.h"
 #include "SD_controller.h"
 #include "Wifi_menger.h"
-#include "MsgPack.h"
+#include <MsgPack.h>
 #include "packets.h"
 #include "pins.h"
 
@@ -13,17 +13,17 @@ char TEST_SSID[] = "GIGA_COM_68B1";
 char TEST_PASS[] = "ddEFmZ9U";
 
 // Rozmiar buforów komunikacyjnych 
-const int BUFFER_SIZE = 2;
+const int BUFFER_SIZE = 32;
 
 // ________PAMIĘĆ WSPÓLNA________
 
 // Kolejka komend G-Code (Wi-Fi [Core 1] -> Silniki [Core 0])
-GcodeCom comandQueue[BUFFER_SIZE];
+processedData comandQueue[BUFFER_SIZE];
 volatile int cmdhead = 0; // dla core 1
 volatile int cmdtail = 0; // dla core 2
 
 // Kolejka Feedback/ACK (Silniki [Core 0] -> Wi-Fi [Core 1])
-MachineStatus ackQueue[BUFFER_SIZE];
+processedStatus ackQueue[BUFFER_SIZE];
 volatile int ackhead = 0; // dla core 1
 volatile int acktail = 0; // dla core 2
 
@@ -37,18 +37,14 @@ bool is_cmd_empty() { return cmdhead == cmdtail; }
 bool is_ack_empty() { return ackhead == acktail; }
 
 // ________DEKLARACJE OBIEKTÓW________
-MsgPack::Unpacker unpacker; // Do rozpakowywania danych przychodzących
 MsgPack::Packer packer; // Do pakowania danych wychodzących
-
+MsgPack::Unpacker unpacker;
 // Konfiguracja silników krokowych na wybranych pinach i PIO
 Stepper motorA(PIO_SELECT, STEP_PIN, DIR_PIN, ENABLE_PIN ,HOLD_PIN);
 Stepper motorB(PIO_SELECT, STEP_PIN2, DIR_PIN2, ENABLE_PIN2 ,HOLD_PIN2);
 
 // Procesor G-Code sterujący silnikami
 GCode procesor(&motorA, &motorB);
-
-// Kontroler karty SD (obecnie nieużywany w głównej pętli, ale zainicjalizowany)
-SDController sdController(CS_PIN, DD_PIN, CLK_PIN, CMD_PIN);
 
 // Menedżer WiFi obsługujący WebSockets i mDNS
 WiFiMenager wifi(TEST_SSID, TEST_PASS);
@@ -60,49 +56,57 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
     // Czeaka tylko na dane binarne czyli MsgPack
     if (type == WStype_BIN) 
     {
-        //dodawanie danych do unpackera 
+         
         unpacker.feed(payload, length);
         GcodeCom packet;
-
-        // Pętla deserializacji jej zadnie to wyciąganie wszystkich pełnych pakietów z bufora
-        while(unpacker.deserialize(packet))
+        if(unpacker.deserialize(packet))
         {
-            // Jeśli jest miejsce w kolejce do Core 0
             if(!is_cmd_full())
             {
-                // Zapisz pakiet i przesuń wskaźnik zapisu
-                comandQueue[cmdhead] = packet;
+                processedData data_packet;
+                data_packet.msgType = packet.msgType;
+                data_packet.Gcode = packet.Gcode;
+                data_packet.id = packet.id;
+                data_packet.is_last = packet.is_last;
+                data_packet.client_num = num;
+                comandQueue[cmdhead] = data_packet;
+
                 cmdhead = ( ( cmdhead + 1 ) % BUFFER_SIZE );
+                Serial.println("[MsgPack] Packet added to queue");
             }
             else
             {
-                // Błąd przepełnienia bufora pakiet jest tracony
-                if(Serial) Serial.println("[Core 1] Buffer is full");
+                Serial.println("[Core 1] Buffer is full");
             }
         }
+        else 
+        {
+            Serial.print("[MsgPack] Deserialization ERROR. Payload size: ");
+            Serial.println(length);
+        }
     }
-    // Opcjonalnie obsługa tekstu
+    // Opcjonalnie obsługa tekstu 
     else if (type == WStype_TEXT) 
     {
         String txt = String((char*)payload);
         if (num == 255 && !is_cmd_empty())
         {
-            if(Serial) Serial.println("[Jog] Ignored - Machine Busy!");
+            if(Serial) Serial.println("[Jog] Machine Busy!");
             return; 
         }
         if(txt.startsWith("G")) 
         {
-            GcodeCom packet;
+            processedData packet;
             packet.Gcode = txt;  
             packet.id = 0;     
             packet.is_last = true;
+            packet.client_num = num;
+            
             if(!is_cmd_full()) {
-                move_form_website = true;
                 comandQueue[cmdhead] = packet;
                 index_website = cmdhead;
                 cmdhead = (cmdhead + 1) % BUFFER_SIZE;
                 if(Serial) Serial.println("[Jog] Added to queue: " + txt);
-                
             }
         }        
     }   
@@ -132,6 +136,7 @@ void setup()
 void setup1()
 {
     // Próba połączenia z WiFi i uruchomienia mDNS
+    while(!Serial){delay(10);}
     while(!wifi.init()) { delay(1); }
     float sx = 100.0f, sy = 200.0f, st_mm = 100.0f, st_rot = 200.0f;
 
@@ -151,12 +156,12 @@ void setup1()
 }
 
 void loop() 
-{
+{   
     // Sprawdzanie czy są nowe komendy od Core 1
     if(!is_cmd_empty())
     {
         // Pobieranie zadania z kolejki
-        GcodeCom task = comandQueue[cmdtail];
+        processedData task = comandQueue[cmdtail];
         cmdtail = (cmdtail + 1) % BUFFER_SIZE;
 
         // Wykonaj ruch jeśli komenda nie jest pusta
@@ -164,19 +169,15 @@ void loop()
         {
             procesor.processLine(task.Gcode); // Parsowanie i uruchomienie ruchu
             procesor.move_complete();// blokowanie rdzenia az ruch sie nie skonczy 
-
-            if(move_form_website)
-            {
-                cmdhead = index_website;
-                move_form_website = false;
-            }
-
         } 
         //po wykonaniu ruchu przygotowanie potweirdzenia ack
         if(!is_ack_full())
         {
-            MachineStatus ack;
+            processedStatus ack;
             
+            ack.id = task.id;
+            ack.state = "OK";
+            ack.target_client = task.client_num;
             ack.ack = true;
 
             ackQueue[ackhead] = ack;
@@ -189,12 +190,39 @@ void loop1()
 {
     // Obsługa stosu sieciowego czyli utrzymanie połączenia, ping-pong, odbiór danych
     wifi.run();
+
+    //sprawdzenie zmiany ustawien 
+    if (wifi.config_changed)
+    {
+        // Zmienne tymczasowe do wczytania nowych wartości
+        float sx, sy, st_mm, st_rot;
+        
+        // Próba wczytania nowego pliku
+        if (wifi.load_config(sx, sy, st_mm, st_rot)) 
+        {
+            // Aktualizacja ustawień w obiekcie GCode
+            procesor.update_settings(sx, sy, st_mm, st_rot);
+            Serial.println("[Config] Settings loaded from config.json");
+        }
+        
+        // Reset flagi, żeby nie wczytywać w kółko
+        wifi.config_changed = false;
+    }
+
     // Sprawdź, czy Core 0 wystawił jakieś potwierdzenia do wysłania
     if(!is_ack_empty())
     {
-        MachineStatus ack_to_send = ackQueue[acktail];
-        acktail = (acktail + 1) % BUFFER_SIZE;
+        MachineStatus ack_to_send; 
+        ack_to_send.ack = ackQueue[acktail].ack;
+        ack_to_send.id = ackQueue[acktail].id;
+        ack_to_send.msgType = ackQueue[acktail].msgType;
+        ack_to_send.state = ackQueue[acktail].state;
         // Wyślij potwierdzenie do PC przez WebSocket
-        wifi.send_msgpack(ack_to_send, packer);
+        if(ackQueue[acktail].target_client != 255)
+        {
+            wifi.send_msgpack(ackQueue[acktail].target_client , ack_to_send, packer);
+        }
+        acktail = (acktail + 1) % BUFFER_SIZE;
     }
 }
+

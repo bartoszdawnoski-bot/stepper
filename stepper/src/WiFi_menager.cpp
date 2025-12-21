@@ -1,5 +1,31 @@
 #include "Wifi_menger.h"
 
+const char* BLOCKED_CONFIG_HTML = 
+    R"rawliteral(
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>Dostęp zabroniony</title>
+                <style>
+                    body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #ffe6e6; color: #cc0000; }
+                    .container { max-width: 600px; margin: 50px auto; border: 2px solid #cc0000; padding: 20px; border-radius: 10px; background: white; }
+                    h1 { font-size: 24px; }
+                    a { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #333; color: white; text-decoration: none; border-radius: 5px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Konfiguracja zablokowana</h1>
+                    <p>Maszyna jest obecnie połączona z panelem sterowania (WebSocket).</p>
+                    <p>Ze względów bezpieczeństwa zmiana ustawień jest niemożliwa podczas pracy.</p>
+                    <p>Rozłącz panel sterowania, aby odblokować konfigurację.</p>
+                </div>
+            </body>
+        </html>
+    )rawliteral";
+
 WiFiMenager::WiFiMenager(char* ssid, char* pass):
 ssid(ssid), password(pass), message_callback(nullptr), websocket(8080), server(80) {}
 
@@ -84,6 +110,8 @@ void WiFiMenager::handle_config_post()
     {
         server.send(200, "text/plain", "Config Saved");
         if(Serial) Serial.println("[Config] Settings updated");
+
+        this->config_changed = true;
     }
     file.close();
     
@@ -152,7 +180,20 @@ bool WiFiMenager::init()
         server.on("/api/config", HTTP_GET, [this](){ this->handle_config_get(); });
         server.on("/api/config", HTTP_POST, [this](){ this->handle_config_post(); });
         server.on("/api/jog", HTTP_GET, [this](){ this->handle_jog(); });
-
+        server.on("/index.html", HTTP_GET, [this](){
+            if(this->active_clients > 0) this->server.send(200, "text/html", BLOCKED_CONFIG_HTML);
+            else 
+            {
+                if(!this->handle_file_read("/index.html")) this->server.send(404, "text/plain", "Config file not found");
+            }
+        });
+        server.on("/", HTTP_GET, [this](){
+            if(this->active_clients > 0) this->server.send(200, "text/html", BLOCKED_CONFIG_HTML);
+            else 
+            {
+                if(!this->handle_file_read("/index.html")) this->server.send(404, "text/plain", "Config file not found");
+            }
+        });
         server.onNotFound([this]() 
         {
             // Próbuj znaleźć plik w pamięci. 
@@ -223,19 +264,34 @@ void WiFiMenager::web_socket_events(uint8_t num ,WStype_t type, uint8_t* payload
     switch(type)
     {
         case WStype_DISCONNECTED:
-            if(Serial) Serial.printf("[%u] Disconnected!\n", num);
+            if(this->active_clients > 0) active_clients--;
+            if(Serial) 
+            {
+                Serial.printf("[%u] Disconnected!", num);
+                Serial.println();
+            }
         break;
         case WStype_CONNECTED:
         {
+            active_clients++;
             IPAddress ip = websocket.remoteIP(num);
-            if(Serial) Serial.printf("[%u] Connected from %d.%d.%d.%d\n", num, ip[0], ip[1], ip[2], ip[3]);
+            if(Serial) 
+            {
+                Serial.printf("[%u] Connected from %d.%d.%d.%d", num, ip[0], ip[1], ip[2], ip[3]);
+                Serial.println();
+            }
         }
         break;
         case WStype_TEXT:
         {
-            if(Serial) Serial.printf("[%u] TXT: %s\n", num, payload);
+            if(Serial) 
+            {
+                Serial.printf("[%u] TXT: %s\n", num, payload);
+                Serial.println();
+            }
             if(message_callback != nullptr) message_callback(num, payload, length, type);
         }
+        break;
         case WStype_BIN:
             if(message_callback != nullptr) message_callback(num, payload, length, type);
         break;
@@ -243,14 +299,16 @@ void WiFiMenager::web_socket_events(uint8_t num ,WStype_t type, uint8_t* payload
 }
 
 // Funkcja wysyłająca strukturę MachineStatus jako MsgPack
-bool WiFiMenager::send_msgpack(MachineStatus meassage,  MsgPack::Packer& packer)
+bool WiFiMenager::send_msgpack(uint8_t client_num, MachineStatus &data, MsgPack::Packer &packer)
 {
     packer.clear();
-    packer.serialize(meassage);
-    return websocket.broadcastBIN(packer.data(), packer.size());
+    packer.serialize(data);
+
+    return websocket.sendBIN(client_num, packer.data(), packer.size());
 }
 
-void WiFiMenager::handle_jog() {
+void WiFiMenager::handle_jog() 
+{
     if (server.hasArg("cmd")) 
     {
         String cmd = server.arg("cmd");
@@ -280,4 +338,9 @@ void WiFiMenager::handle_jog() {
     }
 
     server.send(200, "text/plain", "OK");
+}
+
+bool WiFiMenager::isCon()
+{   
+    return WiFi.connected();
 }

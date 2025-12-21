@@ -345,7 +345,7 @@ void Stepper::setSteps(long double steps)
 
     // Wyczyść FIFO i wpisz liczbę kroków do SM licznika
     pio_sm_clear_fifos(PIO_instance, SM_counter);
-    pio_sm_put_blocking(PIO_instance, SM_counter, (uint32_t)abs(steps) + 1);
+    pio_sm_put_blocking(PIO_instance, SM_counter, (uint32_t)abs(steps));
 
     // Przygotuj maskę startową dla synchronicznego uruchomienia
     uint start_mask = (1u << this->SM_counter) | (1u << this->SM_speed);
@@ -366,12 +366,6 @@ void Stepper::moveThis(long double steps)
     digitalWrite(DIR_PIN, (steps >= 0) ? HIGH : LOW);
     
     this->futurePosition = (int)steps + this->position;
-    if(this->remaining_steps != 0)
-    {
-        steps += remaining_steps;
-        this->futurePosition = (int)steps + this->position;
-        remaining_steps = 0;
-    }
     isMoving = true;
     if(!Enable)
     {
@@ -384,7 +378,7 @@ void Stepper::moveThis(long double steps)
     pio_sm_set_enabled(PIO_instance, SM_speed, true);
 
     pio_sm_clear_fifos(PIO_instance, SM_counter);
-    pio_sm_put_blocking(PIO_instance, SM_counter, (uint32_t)abs(steps) + 1);
+    pio_sm_put_blocking(PIO_instance, SM_counter, (uint32_t)abs(steps));
     
 }
 
@@ -438,14 +432,15 @@ void Stepper::PIO_ISR_Handler()
     if(pio_interrupt_get(this->PIO_instance, this->irq_num))
     {
         pio_interrupt_clear(PIO_instance, irq_num);
-        // Sprawdź, czy zostały jakieś kroki w FIFO (na wypadek błędu/przerwania)
-        if(!pio_sm_is_rx_fifo_empty)
+       if(digitalRead(this->HOLD_PIN) == HIGH) 
         {
             this->setZero();
-            this->remaining_steps = pio_sm_get(PIO_instance, SM_counter);
         }
-        // Aktualizacja pozycji
-        this->position = this->futurePosition - this->remaining_steps;
+        else
+        {
+            // Zatrzymano bo wykonano wszystkie kroki
+            this->position = this->futurePosition;
+        }
         this->isMoving = false;
 
         // Wyłącz State Machines i silnik
@@ -462,7 +457,6 @@ void Stepper::zero()
 void Stepper::setZero()
 {
     this->position = 0;
-
     this->remaining_steps = 0;
     this->futurePosition = 0;
 }
