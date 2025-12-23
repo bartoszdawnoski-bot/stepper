@@ -9,11 +9,11 @@ bool move_form_website = false;
 int index_website = 0;
 
 // Dane logowania do sieci WiFi
-char TEST_SSID[] = "GIGA_COM_68B1";
-char TEST_PASS[] = "ddEFmZ9U";
+char TEST_SSID[] = "Pornhub";
+char TEST_PASS[] = "niggerwifi";
 
 // Rozmiar buforów komunikacyjnych 
-const int BUFFER_SIZE = 32;
+const int BUFFER_SIZE = 16;
 
 // ________PAMIĘĆ WSPÓLNA________
 
@@ -72,7 +72,7 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
                 comandQueue[cmdhead] = data_packet;
 
                 cmdhead = ( ( cmdhead + 1 ) % BUFFER_SIZE );
-                Serial.println("[MsgPack] Packet added to queue");
+                Serial.print("[MsgPack] Packet added to queue: " ); Serial.println(data_packet.Gcode);
             }
             else
             {
@@ -169,6 +169,7 @@ void loop()
         {
             procesor.processLine(task.Gcode); // Parsowanie i uruchomienie ruchu
             procesor.move_complete();// blokowanie rdzenia az ruch sie nie skonczy 
+            Serial.println("Ruch skonczony");
         } 
         //po wykonaniu ruchu przygotowanie potweirdzenia ack
         if(!is_ack_full())
@@ -182,6 +183,7 @@ void loop()
 
             ackQueue[ackhead] = ack;
             ackhead = (ackhead + 1) % BUFFER_SIZE;
+             Serial.println("Zapakowana odpowiedz");
         }
     }   
 }
@@ -220,9 +222,14 @@ void loop1()
         // Wyślij potwierdzenie do PC przez WebSocket
         if(ackQueue[acktail].target_client != 255)
         {
-            wifi.send_msgpack(ackQueue[acktail].target_client , ack_to_send, packer);
+            if(wifi.send_msgpack(ackQueue[acktail].target_client , ack_to_send, packer))
+            {
+                 Serial.println("wyslane");
+            }
+
         }
         acktail = (acktail + 1) % BUFFER_SIZE;
+        Serial.println("Koniec");
     }
 }
 

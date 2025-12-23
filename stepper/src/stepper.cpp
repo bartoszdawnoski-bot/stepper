@@ -245,12 +245,12 @@ bool Stepper::init()
     // Inicjalizacja maszyn stanów z odpowiednimi pinami
     if(Program_select == PROGRAM_1)
     {
-        step1_counter_program_init(PIO_instance, SM_counter, offset_counter, STEP_PIN, HOLD_PIN, sys_clock);
+        step1_counter_program_init(PIO_instance, SM_counter, offset_counter, STEP_PIN, HOLD_PIN, 2000000);
         step1_speed_program_init(PIO_instance, SM_speed, offset_speed, sys_clock);
     }
     else if(Program_select == PROGRAM_2)
     {
-        step2_counter_program_init(PIO_instance, SM_counter, offset_counter, STEP_PIN, HOLD_PIN, sys_clock);
+        step2_counter_program_init(PIO_instance, SM_counter, offset_counter, STEP_PIN, HOLD_PIN, 2000000);
         step2_speed_program_init(PIO_instance, SM_speed, offset_speed, sys_clock);
     }
     else
@@ -303,13 +303,15 @@ void Stepper::setSpeed(float steps_per_second)
     if(steps_per_second <= 0.0f) steps_per_second = 1.0f;
 
     // Obliczenie dzielnika zegara w oparciu o liczbę cykli w pętli asemblera PIO
-    const float delay_loop = 69.0f; // Liczba cykli w programie PIO na jeden krok
-    float clk_div = this->sys_clock / (delay_loop * steps_per_second);
+    //const float delay_loop = 69.0f; // Liczba cykli w programie PIO na jeden krok
+    float clk_div = this->sys_clock / (steps_per_second);
     if (clk_div < 1.0f) clk_div = 1.0f;
 
     // Ustawienie dzielnika (część całkowita i ułamkowa)
     uint int_div = (uint)clk_div;
     uint frac_div = (uint)((clk_div - (float)int_div) * 256.0f);
+    Serial.print("Wartosc calkowita predkosci: "); Serial.println(int_div);
+    Serial.print("Wartosc po przecinku predkosci: "); Serial.println(frac_div);
     pio_sm_set_clkdiv_int_frac(PIO_instance, SM_speed, int_div, frac_div);
 }
 
