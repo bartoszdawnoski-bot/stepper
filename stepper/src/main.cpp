@@ -5,12 +5,9 @@
 #include "packets.h"
 #include "pins.h"
 
-bool move_form_website = false;
-int index_website = 0;
-
 // Dane logowania do sieci WiFi
-char TEST_SSID[] = "Pornhub";
-char TEST_PASS[] = "niggerwifi";
+char TEST_SSID[] = "GIGA_COM_68B1";
+char TEST_PASS[] = "ddEFmZ9U";
 
 // Rozmiar buforów komunikacyjnych 
 const int BUFFER_SIZE = 16;
@@ -39,9 +36,10 @@ bool is_ack_empty() { return ackhead == acktail; }
 // ________DEKLARACJE OBIEKTÓW________
 MsgPack::Packer packer; // Do pakowania danych wychodzących
 MsgPack::Unpacker unpacker;
+
 // Konfiguracja silników krokowych na wybranych pinach i PIO
 Stepper motorA(PIO_SELECT, STEP_PIN, DIR_PIN, ENABLE_PIN ,HOLD_PIN);
-Stepper motorB(PIO_SELECT, STEP_PIN2, DIR_PIN2, ENABLE_PIN2 ,HOLD_PIN2);
+Stepper motorB(PIO_SELECT2, STEP_PIN2, DIR_PIN2, ENABLE_PIN2 ,HOLD_PIN2);
 
 // Procesor G-Code sterujący silnikami
 GCode procesor(&motorA, &motorB);
@@ -104,7 +102,6 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
             
             if(!is_cmd_full()) {
                 comandQueue[cmdhead] = packet;
-                index_website = cmdhead;
                 cmdhead = (cmdhead + 1) % BUFFER_SIZE;
                 if(Serial) Serial.println("[Jog] Added to queue: " + txt);
             }
@@ -116,7 +113,7 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
 void setup() 
 {
     Serial.begin(115200);
-    while(!Serial){delay(10);} // Oczekiwanie na monitor portu szeregowego - do wyzucenia w wersji koncowej
+    while(!Serial || !wifi.isCon()){delay(10);} // Oczekiwanie na monitor portu szeregowego - do wyzucenia w wersji koncowej
     delay(2000); 
 
     // Inicjalizacja silników
@@ -169,7 +166,6 @@ void loop()
         {
             procesor.processLine(task.Gcode); // Parsowanie i uruchomienie ruchu
             procesor.move_complete();// blokowanie rdzenia az ruch sie nie skonczy 
-            Serial.println("Ruch skonczony");
         } 
         //po wykonaniu ruchu przygotowanie potweirdzenia ack
         if(!is_ack_full())
@@ -183,7 +179,6 @@ void loop()
 
             ackQueue[ackhead] = ack;
             ackhead = (ackhead + 1) % BUFFER_SIZE;
-             Serial.println("Zapakowana odpowiedz");
         }
     }   
 }
@@ -222,14 +217,9 @@ void loop1()
         // Wyślij potwierdzenie do PC przez WebSocket
         if(ackQueue[acktail].target_client != 255)
         {
-            if(wifi.send_msgpack(ackQueue[acktail].target_client , ack_to_send, packer))
-            {
-                 Serial.println("wyslane");
-            }
-
+            wifi.send_msgpack(ackQueue[acktail].target_client , ack_to_send, packer);
         }
         acktail = (acktail + 1) % BUFFER_SIZE;
-        Serial.println("Koniec");
     }
 }
 

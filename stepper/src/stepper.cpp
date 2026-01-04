@@ -246,12 +246,12 @@ bool Stepper::init()
     if(Program_select == PROGRAM_1)
     {
         step1_counter_program_init(PIO_instance, SM_counter, offset_counter, STEP_PIN, HOLD_PIN, 2000000);
-        step1_speed_program_init(PIO_instance, SM_speed, offset_speed, sys_clock);
+        step1_speed_program_init(PIO_instance, SM_speed, offset_speed);
     }
     else if(Program_select == PROGRAM_2)
     {
         step2_counter_program_init(PIO_instance, SM_counter, offset_counter, STEP_PIN, HOLD_PIN, 2000000);
-        step2_speed_program_init(PIO_instance, SM_speed, offset_speed, sys_clock);
+        step2_speed_program_init(PIO_instance, SM_speed, offset_speed);
     }
     else
     {
@@ -261,7 +261,8 @@ bool Stepper::init()
 
     pinMode(DIR_PIN, OUTPUT);
     digitalWrite(DIR_PIN, LOW);
-
+    pinMode(HOLD_PIN, INPUT_PULLDOWN);
+    
     // Konfiguracja przerwań (handler static)
     if(PIO_instance == pio0)
     {
@@ -300,20 +301,36 @@ bool Stepper::init()
 // Ustawianie prędkości poprzez dzielnik zegara PIO
 void Stepper::setSpeed(float steps_per_second)
 {
-    if(steps_per_second <= 0.0f) steps_per_second = 1.0f;
+    // Zabezpieczenie przed dzieleniem przez zero i ujemnymi wartościami
+    if(steps_per_second <= 0.01f) return;
+    
+    uint32_t delay_cycles = (uint32_t)(2000000.0f / steps_per_second);
 
-    // Obliczenie dzielnika zegara w oparciu o liczbę cykli w pętli asemblera PIO
-    //const float delay_loop = 69.0f; // Liczba cykli w programie PIO na jeden krok
-    float clk_div = this->sys_clock / (steps_per_second);
-    if (clk_div < 1.0f) clk_div = 1.0f;
+    if (delay_cycles > 5) delay_cycles -= 10;
+    if (delay_cycles < 50) delay_cycles = 50;
 
-    // Ustawienie dzielnika (część całkowita i ułamkowa)
-    uint int_div = (uint)clk_div;
-    uint frac_div = (uint)((clk_div - (float)int_div) * 256.0f);
-    Serial.print("Wartosc calkowita predkosci: "); Serial.println(int_div);
-    Serial.print("Wartosc po przecinku predkosci: "); Serial.println(frac_div);
-    pio_sm_set_clkdiv_int_frac(PIO_instance, SM_speed, int_div, frac_div);
-}
+    pio_sm_set_enabled(PIO_instance, SM_speed, false);
+    // Wyczyść FIFO 
+    pio_sm_clear_fifos(PIO_instance, SM_speed);
+
+    // Zresetuj licznik instrukcji do początku programu (offset_speed)
+    pio_sm_restart(PIO_instance, SM_speed);
+    pio_sm_exec(PIO_instance, SM_speed, pio_encode_jmp(offset_speed));
+
+    // Wyślij nowe opóźnienie do FIFO
+    pio_sm_put_blocking(PIO_instance, SM_speed, delay_cycles);
+
+    uint start_mask = (1u << this->SM_speed);
+    if(PIO_instance == pio0) pio0_start_mask |= start_mask;
+    else if(PIO_instance == pio1) pio1_start_mask |= start_mask;
+    else if(PIO_instance == pio2) pio2_start_mask |= start_mask;
+    
+    // Natychmiastowe włączenie (bo maszyna licznika może już działać)
+   if(Serial) {
+        Serial.print("Target Speed: "); Serial.print(steps_per_second);
+        Serial.print(" Hz | Delay Cycles (2MHz base): "); Serial.println(delay_cycles);
+    }
+ }
 
 // Ustawienie liczby kroków do wykonania (przygotowanie do ruchu)
 void Stepper::setSteps(long double steps)
@@ -329,14 +346,6 @@ void Stepper::setSteps(long double steps)
     
     // Obliczenie pozycji docelowej
     this->futurePosition = (int)steps + this->position;
-
-    // Korekta o pozostałe kroki (jeśli poprzedni ruch był przerwany)
-    if(this->remaining_steps != 0)
-    {
-        steps += remaining_steps;
-        this->futurePosition = (int)steps + this->position;
-        remaining_steps = 0;
-    }
     isMoving = true;
     if(!Enable)
     {

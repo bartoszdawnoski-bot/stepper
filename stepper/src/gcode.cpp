@@ -44,8 +44,11 @@ void GCode::execute_parse()
         if(num == 91) { relative_mode = true; return; }
         if(num == 28)
         {
+            stepperX->setSpeed(factor.v_max_x);
+            stepperY->setSpeed(factor.v_max_y);
             stepperX->zero();
             stepperY->zero();
+
             last_stepX = 0;
             last_stepY = 0;
             if(Serial) Serial.println("[GCODE] Homed");
@@ -80,7 +83,10 @@ void GCode::execute_parse()
                 else targetStepY = steps;
             }
             
-            // C. Obliczanie DELTA (ile kroków do zrobienia teraz)
+            long diffX = targetStepX - last_stepX;
+            long diffY = targetStepY - last_stepY;
+
+            // Obliczanie DELTA 
             long deltaX = abs(targetStepX - last_stepX);
             long deltaY = abs(targetStepY - last_stepY);
 
@@ -119,13 +125,15 @@ void GCode::execute_parse()
             fSpeedX *= correction;
             fSpeedY *= correction;
 
-            // Wykonanie
-            stepperX->setSpeed(fSpeedX);
-            stepperY->setSpeed(fSpeedY);
-            
-            stepperX->setSteps(targetStepX);
-            stepperY->setSteps(targetStepY);
+            if (deltaX != 0) {
+                stepperX->setSpeed(fSpeedX); 
+                stepperX->setSteps(diffX); 
+            }
 
+            if (deltaY != 0) {
+                stepperY->setSpeed(fSpeedY);
+                stepperY->setSteps(diffY);
+            }
             if(Serial) 
             {
                 Serial.print("MOVE -> X:"); Serial.print(targetStepX);

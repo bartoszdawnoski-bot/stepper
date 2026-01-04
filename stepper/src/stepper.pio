@@ -1,16 +1,17 @@
 ; step1_counter.pio
 .program step1_counter
-.side_set 1 opt     ; optional side-set (used to toggle step pin)
+.side_set 1 opt                 ; 
 
 .wrap_target
     pull block                      ; Wait for value in TX FIFO, load into OSR
     mov x, osr                      ; Move OSR to X
 
 count:
-    irq 5                           ; Trigger IRQ 5
-    jmp pin, end                    ; If pin == 1, go to end; else
-    jmp !x end [1] side 1           ; If X == 0, go to end; else , set side pin high (step ON)
-    irq wait 4 side 0               ; Wait for IRQ 4 to clear, side pin low (step OFF)
+    irq set 5                       ; Trigger IRQ 5
+    ;jmp pin, end                     If pin == 1, go to end; else
+    jmp !x end [3] side 1           ; If X == 0, go to end; else , set side pin high (step ON)
+    wait 1 irq 4 side 0             ; Wait for IRQ 4 to clear, side pin low (step OFF)
+    irq clear 4                     ;
     jmp x-- count                   ; Decrement X, repeat if not zero
 
 end:
@@ -23,15 +24,20 @@ end:
 ; step1_speed.pio
 .program step1_speed
 
-.wrap_target
-    wait 1 irq 5                    ; Wait for IRQ 5 (triggered by step_counter)
-    set y, 5                        ; Set Y for delay loop (adjust value as needed)
+; Start: pobierz opóźnienie RAZ i trzymaj w rejestrze X
+    pull block                      ; Pobierz liczbę cykli opóźnienia z FIFO
+    mov x, osr                      ; Zapisz w rejestrze X (to jest nasza baza czasu)
 
-delay:
-    nop [9]                         ; Delay 10 cycles (nop + [9])
-    jmp y-- delay                   ; Decrement Y, loop if not zero
-    irq clear 4                     ; Clear IRQ 4, allows step_counter to continue
+.wrap_target
+    wait 1 irq 5                    ; Czekaj na sygnał od licznika kroków (IRQ 5)
+    irq clear 5                     ;
+    mov y, x                        ; Przeładuj opóźnienie z X do Y (licznik roboczy)
+
+delay_loop:
+    jmp y-- delay_loop              ; Pętla opóźniająca (wykonuje się Y razy)
+    irq set 4                       ; Sygnalizuj koniec opóźnienia
 .wrap
+
 
 ; step2_counter.pio
 .program step2_counter
@@ -42,10 +48,11 @@ delay:
     mov x, osr                      ; Move OSR to X
 
 count:
-    irq 7                           ; Trigger IRQ 7
-    jmp pin, end                    ; If pin == 1, go to end; else
-    jmp !x end [1] side 1           ; If X == 0, go to end; else, set side pin high (step ON) 
-    irq wait 6 side 0               ; Wait for IRQ 6 to clear, side pin low (step OFF)
+    irq set 7                       ; Trigger IRQ 7
+    ;jmp pin, end                     If pin == 1, go to end; else
+    jmp !x end [3] side 1           ; If X == 0, go to end; else, set side pin high (step ON) 
+    wait 1 irq 6 side 0               ; Wait for IRQ 6 to clear, side pin low (step OFF)
+    irq clear 6                     ;
     jmp x-- count                   ; Decrement X, repeat if not zero
 
 end:
@@ -58,18 +65,22 @@ end:
 ; step2_speed.pio
 .program step2_speed
 
-.wrap_target
-    wait 1 irq 7                    ; Wait for IRQ 7 (triggered by step_counter)
-    set y, 5                        ; Set Y for delay loop (adjust value as needed)
+    pull block                      ; 1. Pobierz delay
+    mov x, osr                      ; 2. Zapisz w X
 
-delay:
-    nop [9]                         ; Delay 10 cycles (nop + [9])
-    jmp y-- delay                   ; Decrement Y, loop if not zero
-    irq clear 6                     ; Clear IRQ 6, allows step_counter to continue
+.wrap_target
+    wait 1 irq 7                    ; 3. Czekaj na IRQ 7
+    irq clear 7                     ;
+    mov y, x                        ; 4. Przeładuj do Y
+
+delay_loop:
+    jmp y-- delay_loop              ; 5. Pętla
+    irq set 6                       ; 
 .wrap
 
 % c-sdk {
 #include "hardware/clocks.h"
+#define TARGET_PIO_FREQ 2000000.0f
 
 void step1_counter_program_init(PIO pio, uint sm, uint offset, uint step_pin, uint hold_pin,float freq) {
     pio_sm_config c = step1_counter_program_get_default_config(offset);
@@ -89,11 +100,10 @@ void step1_counter_program_init(PIO pio, uint sm, uint offset, uint step_pin, ui
 
 void step1_speed_program_init(PIO pio, uint sm, uint offset) {
     pio_sm_config c = step1_speed_program_get_default_config(offset);
-
-    float div = clock_get_hz(clk_sys) / (freq);
-    sm_config_set_clkdiv(&c, div);
-
-
+    
+    float div = (float)clock_get_hz(clk_sys) / TARGET_PIO_FREQ;
+    sm_config_set_clkdiv(&c, div); 
+    
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
 }
@@ -114,12 +124,12 @@ void step2_counter_program_init(PIO pio, uint sm, uint offset, uint step_pin, ui
     pio_sm_set_enabled(pio, sm, true);
 }
 
-void step2_speed_program_init(PIO pio, uint sm, uint offset, float freq) {
+void step2_speed_program_init(PIO pio, uint sm, uint offset) {
     pio_sm_config c = step2_speed_program_get_default_config(offset);
-
-    float div = clock_get_hz(clk_sys) / (freq);
-    sm_config_set_clkdiv(&c, div);
-
+    
+    float div = (float)clock_get_hz(clk_sys) / TARGET_PIO_FREQ;
+    sm_config_set_clkdiv(&c, div); 
+    
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
 }

@@ -26,10 +26,13 @@ const char* BLOCKED_CONFIG_HTML =
         </html>
     )rawliteral";
 
+// Konstruktor przepisuje char* do String (automatycznie)
 WiFiMenager::WiFiMenager(char* ssid, char* pass):
 ssid(ssid), password(pass), message_callback(nullptr), websocket(8080), server(80) {}
 
-// Ustawienie wskaźnika na funkcję, która zostanie wywołana po odebraniu danych
+WiFiMenager::WiFiMenager():
+ssid(""), password(""), message_callback(nullptr), websocket(8080), server(80) {}
+
 void WiFiMenager::set_callback(on_message_callback ms)
 {
     this->message_callback = ms;
@@ -93,7 +96,6 @@ void WiFiMenager::handle_config_post()
         return;
     }
 
-    // Otwórz plik do zapisu ("w" nadpisuje plik)
     File file = LittleFS.open("/config.json", "w");
     if (!file) 
     {
@@ -101,7 +103,6 @@ void WiFiMenager::handle_config_post()
         return;
     }
 
-    // Zapisz JSON do pliku
     if (serializeJson(doc, file) == 0) 
     {
         server.send(500, "text/plain", "Failed to write to file");
@@ -113,63 +114,190 @@ void WiFiMenager::handle_config_post()
 
         this->config_changed = true;
     }
-    file.close();
-    
+    file.close();   
 }
-// Inicjalizacja połączenia WiFi i usług sieciowych
+
+bool WiFiMenager::serial_wizard()
+{
+    Serial.setTimeout(30000);
+    Serial.println("[WIZARD] WIFI Connection wizard");
+    Serial.println("[WIZARD] Network scanning");
+
+    WiFi.disconnect();
+
+    int n = WiFi.scanNetworks();
+    if(n == 0)
+    {
+        Serial.println("[WIZARD] No networks found");
+        return false;
+    }
+
+    Serial.println();
+    Serial.println("[WIZARD] Available networks:");
+    for (int i = 0; i < n; ++i)
+    {
+        Serial.print("["); Serial.print(i + 1); Serial.print("] ");
+        Serial.print(WiFi.SSID(i));
+        Serial.print(" (Signal: "); Serial.print(WiFi.RSSI(i)); Serial.print("dBm)");
+        Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " [Open]" : " [Secured]");
+        delay(10);
+    }
+    Serial.println();
+    Serial.println("[WIZARD] Enter network number:");
+    Serial.flush();
+
+    while(Serial.available() == 0) { delay(100); }
+    int choice = Serial.parseInt();
+    while(Serial.available()) { Serial.read(); }
+
+    if(choice < 1 || choice > n)
+    {
+        Serial.println("[WIZARD] Wrong number");
+        return serial_wizard();
+    }
+
+    String select_ssid = WiFi.SSID(choice - 1);
+    String select_pass = "";
+    Serial.print("[WIZARD] Selected: "); Serial.println(select_ssid);
+    if(WiFi.encryptionType(choice - 1) != ENC_TYPE_NONE)
+    {
+        Serial.println("[WIZARD] Enter password: ");
+        
+        // Czekaj na pierwszy znak 
+        while(Serial.available() == 0) { delay(100); }
+        
+        select_pass = "";
+        unsigned long last_char_time = millis();
+        
+        // Pętla czytająca
+        while(true) 
+        {
+            if (Serial.available()) 
+            {
+                char c = Serial.read();
+                last_char_time = millis(); 
+                if (c == '\n' || c == '\r') break;
+                select_pass += c;
+            }
+            else if (millis() - last_char_time > 100) break;
+        }
+        select_pass.trim(); 
+    }
+
+    StaticJsonDocument<1024> doc;
+
+    if(LittleFS.exists("/config.json"))
+    {
+        File file = LittleFS.open("/config.json", "r");
+        deserializeJson(doc, file);
+        file.close();
+    }
+
+    doc["ssid"] = select_ssid;
+    doc["pass"] = select_pass;
+
+    File file = LittleFS.open("/config.json", "w");
+    if(serializeJson(doc, file))
+    {
+        Serial.println("[WIZARD] Saved successfully"); 
+        file.close();
+        delay(1000);
+        rp2040.reboot();
+    }
+    else
+    {
+        Serial.println("[WIZARD] Failed to write file");
+        file.close();
+        return false;
+    }    
+    return true;
+}
+
 bool WiFiMenager::init()
 {
     if(!LittleFS.begin()) 
     {
         if(Serial) Serial.println("[FS] LittleFS Mount Failed. Formatting");
         LittleFS.format();
-        if(LittleFS.begin()) 
-        {
-            if(Serial) Serial.println("[FS] Formatted and Mounted");
-        } 
-        else 
-        {
-            if(Serial) Serial.println("[FS] Critical Error, Unable to mount FS");
-        }
+        if(LittleFS.begin()) Serial.println("[FS] Formatted and Mounted");
+        else Serial.println("[FS] Critical Error, Unable to mount FS");
     } 
     else 
     {
         if(Serial) Serial.println("[FS] Mounted successfully.");
     }
+   
+    if(WiFi.status() == WL_CONNECTED) return true; 
 
-    // Jeśli już połączono, nie rób nic
-    if(WiFi.status() == WL_CONNECTED) return true;
     if(Serial)
     {
-        Serial.print("[WIFI] connect to: ");
-        Serial.println(this->ssid);
+        delay(2000); 
+
+        Serial.println("[WIFI] Press the key to configure WiFi");
+
+        unsigned long startWait = millis();
+        bool enterSetup = false;
+        
+        Serial.flush();
+        while(millis() - startWait < 3000)
+        {
+            if (millis() % 500 == 0) { Serial.print("."); delay(20); }
+            if (Serial.available()) 
+            {
+                enterSetup = true;
+                while(Serial.available()) Serial.read(); 
+                break;
+            }
+        }
+        Serial.println();
+        
+        if (enterSetup) 
+        {
+            serial_wizard(); 
+            return false;
+        } else {
+            Serial.println("[WIFI] Start from saved data");
+        }
     }
 
-    WiFi.mode(WIFI_STA); // Tryb stacji (klienta)
-    WiFi.begin(ssid, password);
+    String name = "";
+    String pass = "";
 
-    // Próba połączenia z timeoutem (ok. 30 sekund)
+    if(wifi_get(name, pass) && this->ssid == "" && this->password == "")
+    {
+        this->ssid = name;
+        this->password = pass;
+    }
+
+    if(name == "")
+    {
+        if(Serial) Serial.println("[WIFI] No configuration in the file");
+        serial_wizard();
+        return false;
+    }
+    
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(this->ssid.c_str(), this->password.c_str());
+
     int retry = 0;
-    while (WiFi.status() != WL_CONNECTED && retry <= 60)
+    while (WiFi.status() != WL_CONNECTED && retry <= 30)
     {
         delay(500);
-        if(Serial)
-        {
-           Serial.print('.');
-        }  
+        if(Serial) Serial.print('.');
         retry++;
     }
     if(Serial) Serial.println();
+    
     if(WiFi.status() == WL_CONNECTED)
     {
         if(Serial)
         {
             Serial.print("[WIFI] Connected: ");
             Serial.println(WiFi.localIP());
-            Serial.print("[WIFI] RSSI: "); // Siła sygnału
+            Serial.print("[WIFI] RSSI: "); 
             Serial.println(WiFi.RSSI());
         }
-        //Start mDNS dostęp jako ws://winder.local:8080
+        
         if(MDNS.begin(this->host_name))
         {
             MDNS.addService("ws", "tcp", this->port_webSocket);
@@ -196,7 +324,6 @@ bool WiFiMenager::init()
         });
         server.onNotFound([this]() 
         {
-            // Próbuj znaleźć plik w pamięci. 
             if (!this->handle_file_read(this->server.uri())) 
             {
                 this->server.send(404, "text/plain", "404: File Not Found");
@@ -204,19 +331,16 @@ bool WiFiMenager::init()
         });
 
         server.begin();
-        //Start Serwera WebSocket
         websocket.begin();
         websocket.onEvent([this](uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
             this->web_socket_events(num, type, payload, length);
         });
 
-        // Ustawienie interwału automatycznego ponawiania połączenia
-        if(Serial) Serial.print("[WS] WebSocket Server started on port "); Serial.println(this->port_webSocket);
+        if(Serial) { Serial.print("[WS] WebSocket Server started on port "); Serial.println(this->port_webSocket); }
         return true;
     }
     else
     {
-        // Logowanie błędów połączenia
         if(Serial) {
             Serial.print("[WIFI] Connection FAILED. Status code: ");
             Serial.println(WiFi.status());
@@ -226,30 +350,26 @@ bool WiFiMenager::init()
     }
 }
 
-// Główna pętla obsługi sieci (powinna być wywoływana w loop())
 void WiFiMenager::run()
 {
     server.handleClient();
-    // Obsługa klientów 
     websocket.loop();
-    // Obsługa mDNS
     MDNS.update();
 }
 
 bool WiFiMenager::load_config(float &sx, float &sy, float &st_mm, float &st_rot) {
-    if (!LittleFS.exists("/config.json")) return false;
+    if(!LittleFS.exists("/config.json")) return false;
     
     File file = LittleFS.open("/config.json", "r");
     StaticJsonDocument<512> doc;
     DeserializationError error = deserializeJson(doc, file);
     file.close();
 
-    if (error) 
+    if(error) 
     {
-        if(Serial) Serial.println("[Config] Failed to read file, using defaults");
+        if(Serial) Serial.println("[Config] Failed to read file");
         return false;
     }
-    // Pobierz wartości 
     if(doc.containsKey("max_speed_x")) sx = doc["max_speed_x"];
     if(doc.containsKey("max_speed_y")) sy = doc["max_speed_y"];
     if(doc.containsKey("steps_mm")) st_mm = doc["steps_mm"];
@@ -258,7 +378,27 @@ bool WiFiMenager::load_config(float &sx, float &sy, float &st_mm, float &st_rot)
     return true;
 }
 
-// Wewnętrzna obsługa zdarzeń WebSockets
+bool WiFiMenager::wifi_get(String &ssid, String &pass)
+{
+    if(!LittleFS.exists("/config.json")) return false;
+    
+    File file = LittleFS.open("/config.json", "r");
+    StaticJsonDocument<512> doc;
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();
+
+    if (error) 
+    {
+        if(Serial) Serial.println("[Config] Failed to read file");
+        return false;
+    }
+
+    if(doc.containsKey("ssid")) ssid = doc["ssid"].as<String>();
+    if(doc.containsKey("pass")) pass = doc["pass"].as<String>();
+    
+    return true;
+}
+
 void WiFiMenager::web_socket_events(uint8_t num ,WStype_t type, uint8_t* payload, size_t length)
 {
     switch(type)
@@ -298,12 +438,10 @@ void WiFiMenager::web_socket_events(uint8_t num ,WStype_t type, uint8_t* payload
     }
 }
 
-// Funkcja wysyłająca strukturę MachineStatus jako MsgPack
 bool WiFiMenager::send_msgpack(uint8_t client_num, MachineStatus &data, MsgPack::Packer &packer)
 {
     packer.clear();
     packer.serialize(data);
-
     return websocket.sendBIN(client_num, packer.data(), packer.size());
 }
 
@@ -318,6 +456,12 @@ void WiFiMenager::handle_jog()
             server.send(200, "text/plain", "OK");
             return;
         }
+        else
+        {
+            if(message_callback != nullptr) message_callback(255, (uint8_t*)cmd.c_str(), cmd.length(), WStype_TEXT);
+            server.send(200, "text/plain", "OK");
+            return;
+        }
     }
 
     if (!server.hasArg("axis") || !server.hasArg("dist")) 
@@ -325,10 +469,10 @@ void WiFiMenager::handle_jog()
         server.send(400, "text/plain", "Missing args");
         return;
     }
-    String axis = server.arg("axis"); // "X" lub "Y"
-    String dist = server.arg("dist"); // np. "10" lub "-10"
-    String speed = server.arg("speed"); // np. "500"
-    if(speed == "") speed = "500"; // Domyślna prędkość
+    String axis = server.arg("axis"); 
+    String dist = server.arg("dist"); 
+    String speed = server.arg("speed"); 
+    if(speed == "") speed = "500"; 
 
     String gcode = "G1 " + axis + dist + " F" + speed;
 

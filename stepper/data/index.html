@@ -73,11 +73,57 @@
       <button class="btn-jog" onclick="jog('Y', 90)">+ 90°</button>
       <button class="btn-jog" onclick="jog('Y', 180)">+ 180°</button>
     </div>
+    <div class="card">
+    <h2>Terminal G-Code</h2>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <input type="text" id="gcodeInput" placeholder="np. G1 X50 F500" style="margin-bottom: 0;">
+      <button onclick="sendCustomGcode()" style="width: auto; white-space: nowrap;">Wyślij</button>
+    </div>
+      <p style="font-size: 0.8em; color: #666; margin-top: 5px;">
+        Przykłady: <code>G28</code> (Bazowanie), <code>G1 X100</code> (Ruch), <code>M18</code> (Wyłącz silniki)
+      </p>
+    </div>
   </div>
 
   <script>
     const statusEl = document.getElementById('status');
     const saveBtn = document.getElementById('saveBtn');
+
+    function sendCustomGcode() {
+      var cmd = document.getElementById('gcodeInput').value.trim();
+      
+      if (!cmd) {
+        alert("Wpisz komendę!");
+        return;
+      }
+
+      console.log("Wysyłam własny G-Code: " + cmd);
+      fetch('/api/jog?cmd=' + encodeURIComponent(cmd))
+        .then(function(response) {
+            if (response.ok) {
+                console.log("Wysłano: " + cmd);
+                // Opcjonalnie wyczyść pole po wysłaniu:
+                document.getElementById('gcodeInput').value = ''; 
+                return response.text();
+            } else {
+                throw new Error("Błąd serwera: " + response.status);
+            }
+        })
+        .then(function(text) {
+            console.log("Odpowiedź: " + text);
+        })
+        .catch(function(error) {
+            alert("Błąd wysyłania komendy:\n" + error);
+        });
+    }
+    document.getElementById('gcodeInput').addEventListener(
+    "keypress", function(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        sendCustomGcode();
+      }
+    });
+
     function jog(axis, dist) {
       // Pobieramy prędkość z suwaka
       var speed = document.getElementById('feedrate').value;

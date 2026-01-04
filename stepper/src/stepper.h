@@ -8,7 +8,7 @@
 #include <Arduino.h>
 #include <hardware/pio.h>
 
-#define LENGHT 2 ///< Maksymalna liczba silników na jedną instancję PIO.
+#define LENGHT 1 ///< Maksymalna liczba silników na jedną instancję PIO.
 
 /**
  * @class Stepper

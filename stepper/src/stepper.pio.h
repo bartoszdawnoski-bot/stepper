@@ -21,9 +21,9 @@ static const uint16_t step1_counter_program_instructions[] = {
     0x80a0, //  0: pull   block
     0xa027, //  1: mov    x, osr
     0xc005, //  2: irq    nowait 5
-    0x00c7, //  3: jmp    pin, 7
-    0x1927, //  4: jmp    !x, 7           side 1 [1]
-    0xd024, //  5: irq    wait 4          side 0
+    0x1b27, //  3: jmp    !x, 7           side 1 [3]
+    0x30c4, //  4: wait   1 irq, 4        side 0
+    0xc044, //  5: irq    clear 4
     0x0042, //  6: jmp    x--, 2
     0xa0c1, //  7: mov    isr, x
     0x8000, //  8: push   noblock
@@ -54,24 +54,26 @@ static inline pio_sm_config step1_counter_program_get_default_config(uint offset
 // step1_speed //
 // ----------- //
 
-#define step1_speed_wrap_target 0
-#define step1_speed_wrap 4
+#define step1_speed_wrap_target 2
+#define step1_speed_wrap 6
 #define step1_speed_pio_version 0
 
 static const uint16_t step1_speed_program_instructions[] = {
+    0x80a0, //  0: pull   block
+    0xa027, //  1: mov    x, osr
             //     .wrap_target
-    0x20c5, //  0: wait   1 irq, 5
-    0xe045, //  1: set    y, 5
-    0xa942, //  2: nop                           [9]
-    0x0082, //  3: jmp    y--, 2
-    0xc044, //  4: irq    clear 4
+    0x20c5, //  2: wait   1 irq, 5
+    0xc045, //  3: irq    clear 5
+    0xa041, //  4: mov    y, x
+    0x0085, //  5: jmp    y--, 5
+    0xc004, //  6: irq    nowait 4
             //     .wrap
 };
 
 #if !PICO_NO_HARDWARE
 static const struct pio_program step1_speed_program = {
     .instructions = step1_speed_program_instructions,
-    .length = 5,
+    .length = 7,
     .origin = -1,
     .pio_version = step1_speed_pio_version,
 #if PICO_PIO_VERSION > 0
@@ -99,9 +101,9 @@ static const uint16_t step2_counter_program_instructions[] = {
     0x80a0, //  0: pull   block
     0xa027, //  1: mov    x, osr
     0xc007, //  2: irq    nowait 7
-    0x00c7, //  3: jmp    pin, 7
-    0x1927, //  4: jmp    !x, 7           side 1 [1]
-    0xd026, //  5: irq    wait 6          side 0
+    0x1b27, //  3: jmp    !x, 7           side 1 [3]
+    0x30c6, //  4: wait   1 irq, 6        side 0
+    0xc046, //  5: irq    clear 6
     0x0042, //  6: jmp    x--, 2
     0xa0c1, //  7: mov    isr, x
     0x8000, //  8: push   noblock
@@ -132,24 +134,26 @@ static inline pio_sm_config step2_counter_program_get_default_config(uint offset
 // step2_speed //
 // ----------- //
 
-#define step2_speed_wrap_target 0
-#define step2_speed_wrap 4
+#define step2_speed_wrap_target 2
+#define step2_speed_wrap 6
 #define step2_speed_pio_version 0
 
 static const uint16_t step2_speed_program_instructions[] = {
+    0x80a0, //  0: pull   block
+    0xa027, //  1: mov    x, osr
             //     .wrap_target
-    0x20c7, //  0: wait   1 irq, 7
-    0xe045, //  1: set    y, 5
-    0xa942, //  2: nop                           [9]
-    0x0082, //  3: jmp    y--, 2
-    0xc046, //  4: irq    clear 6
+    0x20c7, //  2: wait   1 irq, 7
+    0xc047, //  3: irq    clear 7
+    0xa041, //  4: mov    y, x
+    0x0085, //  5: jmp    y--, 5
+    0xc006, //  6: irq    nowait 6
             //     .wrap
 };
 
 #if !PICO_NO_HARDWARE
 static const struct pio_program step2_speed_program = {
     .instructions = step2_speed_program_instructions,
-    .length = 5,
+    .length = 7,
     .origin = -1,
     .pio_version = step2_speed_pio_version,
 #if PICO_PIO_VERSION > 0
@@ -164,6 +168,7 @@ static inline pio_sm_config step2_speed_program_get_default_config(uint offset) 
 }
 
 #include "hardware/clocks.h"
+#define TARGET_PIO_FREQ 2000000.0f
 void step1_counter_program_init(PIO pio, uint sm, uint offset, uint step_pin, uint hold_pin,float freq) {
     pio_sm_config c = step1_counter_program_get_default_config(offset);
     sm_config_set_sideset_pins(&c, step_pin);
@@ -176,10 +181,10 @@ void step1_counter_program_init(PIO pio, uint sm, uint offset, uint step_pin, ui
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
 }
-void step1_speed_program_init(PIO pio, uint sm, uint offset, float freq) {
+void step1_speed_program_init(PIO pio, uint sm, uint offset) {
     pio_sm_config c = step1_speed_program_get_default_config(offset);
-    float div = clock_get_hz(clk_sys) / (freq);
-    sm_config_set_clkdiv(&c, div);
+    float div = (float)clock_get_hz(clk_sys) / TARGET_PIO_FREQ;
+    sm_config_set_clkdiv(&c, div); 
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
 }
@@ -195,10 +200,10 @@ void step2_counter_program_init(PIO pio, uint sm, uint offset, uint step_pin, ui
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
 }
-void step2_speed_program_init(PIO pio, uint sm, uint offset, float freq) {
+void step2_speed_program_init(PIO pio, uint sm, uint offset) {
     pio_sm_config c = step2_speed_program_get_default_config(offset);
-    float div = clock_get_hz(clk_sys) / (freq);
-    sm_config_set_clkdiv(&c, div);
+    float div = (float)clock_get_hz(clk_sys) / TARGET_PIO_FREQ;
+    sm_config_set_clkdiv(&c, div); 
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
 }
