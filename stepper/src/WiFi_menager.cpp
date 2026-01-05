@@ -161,26 +161,9 @@ bool WiFiMenager::serial_wizard()
     Serial.print("[WIZARD] Selected: "); Serial.println(select_ssid);
     if(WiFi.encryptionType(choice - 1) != ENC_TYPE_NONE)
     {
-        Serial.println("[WIZARD] Enter password: ");
-        
-        // Czekaj na pierwszy znak 
-        while(Serial.available() == 0) { delay(100); }
-        
-        select_pass = "";
-        unsigned long last_char_time = millis();
-        
-        // Pętla czytająca
-        while(true) 
-        {
-            if (Serial.available()) 
-            {
-                char c = Serial.read();
-                last_char_time = millis(); 
-                if (c == '\n' || c == '\r') break;
-                select_pass += c;
-            }
-            else if (millis() - last_char_time > 100) break;
-        }
+        Serial.println("[WIZARD] Enter password (and press Enter): ");
+        while(Serial.available() == 0) { delay(50); }
+        select_pass = Serial.readStringUntil('\n');
         select_pass.trim(); 
     }
 

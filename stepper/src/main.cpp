@@ -5,7 +5,7 @@
 #include "packets.h"
 #include "pins.h"
 
-// Dane logowania do sieci WiFi
+// dane logowania wpisane na sztywno zeby szybko testowac
 char TEST_SSID[] = "GIGA_COM_68B1";
 char TEST_PASS[] = "ddEFmZ9U";
 
@@ -45,7 +45,7 @@ Stepper motorB(PIO_SELECT2, STEP_PIN2, DIR_PIN2, ENABLE_PIN2 ,HOLD_PIN2);
 GCode procesor(&motorA, &motorB);
 
 // Menedżer WiFi obsługujący WebSockets i mDNS
-WiFiMenager wifi(TEST_SSID, TEST_PASS);
+WiFiMenager wifi;
 
 // ________CALLBACK WIFI________ 
 // Funkcja wywoływana automatycznie, gdy przyjdą dane z sieci
@@ -57,8 +57,10 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
          
         unpacker.feed(payload, length);
         GcodeCom packet;
+        // probujemy odpakowac
         if(unpacker.deserialize(packet))
         {
+            // jak jest miejsce w kolejce to wrzucamy
             if(!is_cmd_full())
             {
                 processedData data_packet;
