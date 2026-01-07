@@ -118,6 +118,11 @@ void setup()
     Serial.begin(115200);
     while(!Serial || !wifi.isCon()){delay(10);} // Oczekiwanie na monitor portu szeregowego - do wyzucenia w wersji koncowej
     delay(2000); 
+
+    SPI.setRX(TMC_MISO_PIN);
+    SPI.setSCK(TMC_SCK_PIN);
+    SPI.setTX(TMC_MOSI_PIN);
+    SPI.setCS(TMC_CS_PIN_IGNORE);
     SPI.begin();
 
     // Inicjalizacja silników

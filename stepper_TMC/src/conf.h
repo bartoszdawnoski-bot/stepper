@@ -21,7 +21,7 @@
 #define HOLD_PIN_3          255
 
 //konfiguracja SPI
-#define TMC_SPI_PORT        spi0 // spi1
+#define TMC_CS_PIN_IGNORE   255 //nie uzywany pin tak dla pewnosci lepeij go ustawic
 #define TMC_MOSI_PIN        255
 #define TMC_MISO_PIN        255
 #define TMC_SCK_PIN         255
@@ -32,5 +32,5 @@
 
 //Parametr rezystora pomiarowego
 #define R_SENSE             0.075f
-#define CURRENT_A           1.0f //prad silnika X sterownika 
-#define CURRENT_B           1.0f //prad silnika X sterownika 
+#define CURRENT_A           1000.0f //prad silnika X sterownika | 1000mA = 1A
+#define CURRENT_B           1000.0f //prad silnika Y sterownika 

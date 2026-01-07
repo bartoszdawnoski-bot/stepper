@@ -300,7 +300,6 @@ bool Stepper::init()
 
 void Stepper::initTMC(uint16_t cs, float r_sense, uint16_t current_ma)
 {
-    this->CS_PIN = cs;
     pinMode(CS_PIN ,OUTPUT);
     digitalWrite(CS_PIN, HIGH);
 
@@ -320,7 +319,7 @@ void Stepper::initTMC(uint16_t cs, float r_sense, uint16_t current_ma)
     this->tmc_driver->sgt(10);
 
     this->use_tmc = true;
-    if(Serial) Serial.print("[Stepper] TMC driver initialized");
+    if(Serial) Serial.println("[Stepper] TMC driver initialized");
 }
 
 // Ustawianie prędkości poprzez dzielnik zegara PIO

@@ -8,6 +8,7 @@
 #include <Arduino.h>
 #include <hardware/pio.h>
 #include <TMCStepper.h>
+#include <SPI.h>
 
 #define LENGHT 2 ///< Maksymalna liczba silników na jedną instancję PIO.
 
@@ -44,7 +45,7 @@ public:
 
 private:
     PIO PIO_instance; ///< Instancja PIO (pio0, pio1, pio2). 
-    uint STEP_PIN, DIR_PIN, ENABLE_PIN, HOLD_PIN, MS1_PIN, MS2_PIN, MS3_PIN, CS_PIN;
+    uint STEP_PIN, DIR_PIN, ENABLE_PIN, HOLD_PIN, MS1_PIN, MS2_PIN, MS3_PIN, CS_PIN, RX_PIN, SCK_PIN, TX_PIN;
     Program Program_select;
 
     //obsługa sterownika TMC
