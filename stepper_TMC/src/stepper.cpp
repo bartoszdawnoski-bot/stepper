@@ -305,6 +305,8 @@ void Stepper::initTMC(uint16_t cs, float r_sense, uint16_t current_ma)
 
     this->tmc_driver = new TMC5160Stepper(this->CS_PIN, r_sense);
     this->tmc_driver->begin();
+    uint32_t version = motorA.get_driver_ptr()->version(); 
+    Serial.print("TMC Version: "); Serial.println(version, HEX);
 
     this->tmc_driver->toff(5);
     this->tmc_driver->rms_current(current_ma);
@@ -628,4 +630,5 @@ bool Stepper::is_overheated()
 bool Stepper::get_tmc()
 {
     return this->use_tmc;
+
 }
