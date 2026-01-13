@@ -6,10 +6,6 @@
 #include "conf.h"
 #include <SPI.h>
 
-// dane logowania wpisane na sztywno zeby szybko testowac
-char TEST_SSID[] = "GIGA_COM_68B1";
-char TEST_PASS[] = "ddEFmZ9U";
-
 // Rozmiar buforów komunikacyjnych 
 const int BUFFER_SIZE = 16;
 
@@ -39,11 +35,12 @@ MsgPack::Packer packer; // Do pakowania danych wychodzących
 MsgPack::Unpacker unpacker;
 
 // Konfiguracja silników krokowych na wybranych pinach i PIO
-Stepper motorA(PIO_SELECT_0, STEP_PIN_1, DIR_PIN_1, ENABLE_PIN_1 , HOLD_PIN_1, TRANSOPT_PIN);
-Stepper motorB(PIO_SELECT_1, STEP_PIN_2, DIR_PIN_2, ENABLE_PIN_2 ,HOLD_PIN_2);
+Stepper motorA(PIO_SELECT_0, STEP_PIN_1, DIR_PIN_1, ENABLE_PIN_1 , HOLD_PIN_1, TRANSOPT_PIN_A);
+Stepper motorB(PIO_SELECT_1, STEP_PIN_2, DIR_PIN_2, ENABLE_PIN_2 ,HOLD_PIN_2, TRANSOPT_PIN_B);
+Stepper motorC(PIO_SELECT_2, STEP_PIN_3, DIR_PIN_3, ENABLE_PIN_3 ,HOLD_PIN_3);
 
 // Procesor G-Code sterujący silnikami
-GCode procesor(&motorA, &motorB);
+GCode procesor(&motorA, &motorB, &motorC);
 
 // Menedżer WiFi obsługujący WebSockets i mDNS
 WiFiMenager wifi;
@@ -131,20 +128,22 @@ void setup()
     pinMode(E_STOP_PIN, INPUT);
 
     // Inicjalizacja silników
-    if(motorA.init() && motorB.init())
+    if(motorA.init() && motorB.init() && motorC.init())
     {
         // Inicjalizacja sterowników
         motorA.initTMC(CS_PIN_A, R_SENSE_TMC_PLUS, CURRENT_A);
         motorB.initTMC(CS_PIN_B, R_SENSE_TMC_PLUS, CURRENT_B); 
+        motorC.initTMC(CS_PIN_C, R_SENSE_TMC_PRO, CURRENT_C);
         Serial.println("[Core 0] Steppers are ready");
     }
     else
     {
-        Serial.println("[Core 0] restart the winder or check the motors");
+        Serial.println("[Core 0] Restart the winder or check the motors");
         while(true) { delay(1); } // Zatrzymaj program w przypadku błędu
     }
     motorA.setEnable(true);
     motorB.setEnable(true);
+    motorC.setEnable(true);
 }
 // ________CORE 1 KOMUNIKACJA WIFI________
 void setup1()
