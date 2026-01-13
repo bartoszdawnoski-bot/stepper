@@ -179,6 +179,12 @@ void GCode::move_complete()
     // Pętla czekająca, jeśli którykolwiek silnik się porusza
     while(stepperX->moving() || stepperY->moving() || (stepperZ != nullptr && stepperZ->moving()))
     {
+        if(digitalRead(E_STOP_PIN) == HIGH)
+        {
+            stepperX->e_stop();
+            stepperY->e_stop();
+            this->e_stop = true;
+        }
         delay(1);
     }
 
@@ -212,4 +218,9 @@ void GCode::update_settings(float sx, float sy, float st_mm, float st_rot) {
     factor.v_max_y = sy;
     factor.steps_perMM_x = st_mm;
     factor.steps_per_rotation_c = st_rot;
+}
+
+bool GCode::is_em_stopped()
+{
+    return this->e_stop;
 }

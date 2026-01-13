@@ -90,7 +90,7 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold, 
 }
 
 // Konstruktor główny
-Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold)
+Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold, uint transopt)
 :PIO_instance(pio_instance),
  STEP_PIN(step),
  DIR_PIN(dir),
@@ -107,7 +107,8 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold)
  MS3_PIN(255),
  micro_steps(1),
  position(0),
- remaining_steps(0)
+ remaining_steps(0),
+ TROPT_PIN(transopt)
 {   
     bool program1 = true, program2 = true;
 
@@ -158,6 +159,7 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold)
 
     pinMode(ENABLE_PIN, OUTPUT);
     digitalWrite(ENABLE_PIN, HIGH); // Domyślnie wyłącz silnik
+    pinMode(TROPT_PIN, OUTPUT);// Domyslnie wkrac krancowke
     this->sys_clock = (float)clock_get_hz(clk_sys);
     // Rejestracja instancji w odpowiedniej tablicy PIO (dla obsługi przerwań analogicznie dla pio1 i pio2)
     if(PIO_instance == pio0)
@@ -261,7 +263,7 @@ bool Stepper::init()
 
     pinMode(DIR_PIN, OUTPUT);
     digitalWrite(DIR_PIN, LOW);
-    pinMode(HOLD_PIN, INPUT_PULLDOWN);
+    pinMode(HOLD_PIN, INPUT);
     
     // Konfiguracja przerwań (handler static)
     if(PIO_instance == pio0)
@@ -300,15 +302,24 @@ bool Stepper::init()
 
 void Stepper::initTMC(uint16_t cs, float r_sense, uint16_t current_ma)
 {
-    pinMode(CS_PIN ,OUTPUT);
-    digitalWrite(CS_PIN, HIGH);
-
+    this->CS_PIN = cs; 
     this->tmc_driver = new TMC5160Stepper(this->CS_PIN, r_sense);
+   
+   
     this->tmc_driver->begin();
-    uint32_t version = motorA.get_driver_ptr()->version(); 
-    Serial.print("TMC Version: "); Serial.println(version, HEX);
+    SPI.beginTransaction(
+            SPISettings(
+                4000000,
+                MSBFIRST,
+                SPI_MODE3
+            )
+        );
+    uint32_t status = this->tmc_driver->version();
+    Serial.print("Versja sterownika: "); Serial.println(status);
+    
 
     this->tmc_driver->toff(5);
+    int8_t read_val = this->tmc_driver->toff(); // Odczytujemy
     this->tmc_driver->rms_current(current_ma);
 
     this->tmc_driver->microsteps(16);
@@ -370,6 +381,11 @@ void Stepper::setSteps(long double steps)
     // Ustawienie kierunku
     digitalWrite(DIR_PIN, (steps >= 0) ? HIGH : LOW);
     
+    if(this->position == 0 && this->TROPT_PIN != 255)
+    {
+        digitalWrite(this->TROPT_PIN, LOW);
+    }
+
     // Obliczenie pozycji docelowej
     this->futurePosition = (int)steps + this->position;
     isMoving = true;
@@ -379,6 +395,10 @@ void Stepper::setSteps(long double steps)
        return; 
     } 
     digitalWrite(ENABLE_PIN, LOW); // Włącz sterownik silnika
+    if(this->position + steps <= 0 && steps < 0 && this->TROPT_PIN != 255)
+    {
+        digitalWrite(this->TROPT_PIN, HIGH);
+    }
 
     // Wyczyść FIFO i wpisz liczbę kroków do SM licznika
     pio_sm_clear_fifos(PIO_instance, SM_counter);
@@ -469,7 +489,7 @@ void Stepper::PIO_ISR_Handler()
     if(pio_interrupt_get(this->PIO_instance, this->irq_num))
     {
         pio_interrupt_clear(PIO_instance, irq_num);
-       if(digitalRead(this->HOLD_PIN) == HIGH) 
+        if(digitalRead(this->HOLD_PIN) == HIGH) 
         {
             this->setZero();
         }
@@ -479,7 +499,6 @@ void Stepper::PIO_ISR_Handler()
             this->position = this->futurePosition;
         }
         this->isMoving = false;
-
         // Wyłącz State Machines i silnik
         pio_sm_set_enabled(PIO_instance, SM_counter, false);
         pio_sm_set_enabled(PIO_instance, SM_speed, false);
@@ -496,6 +515,7 @@ void Stepper::setZero()
     this->position = 0;
     this->remaining_steps = 0;
     this->futurePosition = 0;
+    this->isMoving = false;
 }
 bool Stepper::moving()
 {
@@ -630,5 +650,11 @@ bool Stepper::is_overheated()
 bool Stepper::get_tmc()
 {
     return this->use_tmc;
+}
 
+void Stepper::e_stop()
+{
+    pio_sm_set_enabled(PIO_instance, SM_counter, false);
+    pio_sm_set_enabled(PIO_instance, SM_speed, false);
+    this->isMoving = false;
 }

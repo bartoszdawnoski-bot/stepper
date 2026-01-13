@@ -9,6 +9,7 @@
 #include <hardware/pio.h>
 #include <TMCStepper.h>
 #include <SPI.h>
+#include "conf.h"
 
 #define LENGHT 2 ///< Maksymalna liczba silników na jedną instancję PIO.
 
@@ -45,7 +46,7 @@ public:
 
 private:
     PIO PIO_instance; ///< Instancja PIO (pio0, pio1, pio2). 
-    uint STEP_PIN, DIR_PIN, ENABLE_PIN, HOLD_PIN, MS1_PIN, MS2_PIN, MS3_PIN, CS_PIN, RX_PIN, SCK_PIN, TX_PIN;
+    uint STEP_PIN, DIR_PIN, ENABLE_PIN, HOLD_PIN, MS1_PIN, MS2_PIN, MS3_PIN, CS_PIN, RX_PIN, SCK_PIN, TX_PIN, TROPT_PIN;
     Program Program_select;
 
     //obsługa sterownika TMC
@@ -84,7 +85,7 @@ public:
     /**
      * @brief Konstruktor z automatycznym doborem programu PIO.
      */
-    Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold);
+    Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold, uint transopt = 255);
 
     /**
      * @brief Statyczna metoda uruchamiająca wszystkie przygotowane silniki jednocześnie.
@@ -158,6 +159,9 @@ public:
 
     /** @brief Ustawia aktualną pozycję jako 0. */
     void setZero();
+
+    /** @brief Funkacja zatrzymania awaryjnego, zatrzymuje maszyny stanów PIO*/
+    void e_stop();
 };
 
 #endif 

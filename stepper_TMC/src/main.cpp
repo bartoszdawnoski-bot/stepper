@@ -39,7 +39,7 @@ MsgPack::Packer packer; // Do pakowania danych wychodzących
 MsgPack::Unpacker unpacker;
 
 // Konfiguracja silników krokowych na wybranych pinach i PIO
-Stepper motorA(PIO_SELECT_0, STEP_PIN, DIR_PIN, ENABLE_PIN ,HOLD_PIN);
+Stepper motorA(PIO_SELECT_0, STEP_PIN_1, DIR_PIN_1, ENABLE_PIN_1 , HOLD_PIN_1, TRANSOPT_PIN);
 Stepper motorB(PIO_SELECT_1, STEP_PIN_2, DIR_PIN_2, ENABLE_PIN_2 ,HOLD_PIN_2);
 
 // Procesor G-Code sterujący silnikami
@@ -116,21 +116,26 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
 void setup() 
 {
     Serial.begin(115200);
-    while(!Serial || !wifi.isCon()){delay(10);} // Oczekiwanie na monitor portu szeregowego - do wyzucenia w wersji koncowej
+    while(!Serial || wifi.isCon()){delay(10);} // Oczekiwanie na monitor portu szeregowego - do wyzucenia w wersji koncowej
     delay(2000); 
 
-    SPI.setRX(TMC_MISO_PIN);
-    SPI.setSCK(TMC_SCK_PIN);
-    SPI.setTX(TMC_MOSI_PIN);
-    SPI.setCS(TMC_CS_PIN_IGNORE);
+    SPI.setRX(16);  // MISO
+    SPI.setTX(19);  // MOSI
+    SPI.setSCK(18); // SCK
+     // SPI.setCS(TMC_CS_PIN_IGNORE);
     SPI.begin();
+
+    pinMode(TMC_CS_PIN_IGNORE, OUTPUT);
+    digitalWrite(TMC_CS_PIN_IGNORE, HIGH);
+
+    pinMode(E_STOP_PIN, INPUT);
 
     // Inicjalizacja silników
     if(motorA.init() && motorB.init())
     {
         // Inicjalizacja sterowników
-        motorA.initTMC(CS_PIN_A, R_SENSE, CURRENT_A);
-        motorB.initTMC(CS_PIN_B, R_SENSE, CURRENT_B); 
+        motorA.initTMC(CS_PIN_A, R_SENSE_TMC_PLUS, CURRENT_A);
+        motorB.initTMC(CS_PIN_B, R_SENSE_TMC_PLUS, CURRENT_B); 
         Serial.println("[Core 0] Steppers are ready");
     }
     else
@@ -177,7 +182,7 @@ void loop()
         if(task.Gcode.length() > 0)
         {
             procesor.processLine(task.Gcode); // Parsowanie i uruchomienie ruchu
-            procesor.move_complete();// blokowanie rdzenia az ruch sie nie skonczy 
+            procesor.move_complete();// blokowanie rdzenia az ruch sie nie skonczy
         } 
         //po wykonaniu ruchu przygotowanie potweirdzenia ack
         if(!is_ack_full())
@@ -199,7 +204,10 @@ void loop1()
 {
     // Obsługa stosu sieciowego czyli utrzymanie połączenia, ping-pong, odbiór danych
     wifi.run();
-
+    if(procesor.is_em_stopped())
+    {
+        wifi.send_stop();
+    }
     //sprawdzenie zmiany ustawien 
     if (wifi.config_changed)
     {

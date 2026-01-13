@@ -8,7 +8,7 @@
 
 count:
     irq set 5                       ; Trigger IRQ 5
-    ;jmp pin, end                     If pin == 1, go to end; else
+    jmp pin, end                     ;If pin == 1, go to end; else
     jmp !x end [3] side 1           ; If X == 0, go to end; else , set side pin high (step ON)
     wait 1 irq 4 side 0             ; Wait for IRQ 4 to clear, side pin low (step OFF)
     irq clear 4                     ;
@@ -49,7 +49,7 @@ delay_loop:
 
 count:
     irq set 7                       ; Trigger IRQ 7
-    ;jmp pin, end                     If pin == 1, go to end; else
+    jmp pin, end                     ;If pin == 1, go to end; else
     jmp !x end [3] side 1           ; If X == 0, go to end; else, set side pin high (step ON) 
     wait 1 irq 6 side 0               ; Wait for IRQ 6 to clear, side pin low (step OFF)
     irq clear 6                     ;

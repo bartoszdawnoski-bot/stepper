@@ -471,3 +471,17 @@ bool WiFiMenager::isCon()
 {   
     return WiFi.connected();
 }
+
+void WiFiMenager::send_stop()
+{ 
+    MachineStatus stop;
+    stop.msgType = 0xFFF;
+    stop.id = -1;
+    stop.ack = false;
+    stop.state = "EStop";
+
+    MsgPack::Packer packer;
+    packer.serialize(stop);
+    websocket.broadcastBIN(packer.data(), packer.size());
+
+}

@@ -8,6 +8,8 @@
 #include <GCodeParser.h>
 #include <WString.h>
 #include "stepper.h"
+#include "Wifi_menger.h"
+#include "conf.h"
 
 /**
  * @class GCode
@@ -23,6 +25,8 @@ private:
      * @struct Factors
      * @brief Stałe konfiguracyjne kinematyki maszyny.
      */
+
+    bool e_stop = false;
     struct Factors {
         float steps_perMM_x = 100.0f; // ustawienia wozka
         float steps_per_rotation_c = 200.0f; // ustawienia wrzeciona
@@ -90,6 +94,8 @@ public:
      * @brief Aktualizuje ustawienia kinematyki w locie (np. po wczytaniu configu).
      */
     void update_settings(float sx, float sy, float st_mm, float st_rot);
+
+    bool is_em_stopped();
 };
 
 #endif

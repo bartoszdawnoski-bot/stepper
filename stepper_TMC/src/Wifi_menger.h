@@ -128,6 +128,8 @@ public:
     
     /** @brief Sprawdza czy jesteśmy połączeni z siecią. */
     bool isCon();
+
+    void send_stop();
     
 };
 
