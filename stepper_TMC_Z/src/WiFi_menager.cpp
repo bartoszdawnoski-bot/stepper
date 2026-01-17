@@ -480,10 +480,17 @@ void WiFiMenager::send_stop()
     stop.msgType = 0xFFF;
     stop.id = -1;
     stop.ack = false;
-    stop.state = "EStop";
+    strcpy(stop.state, "EStop");
 
     MsgPack::Packer packer;
     packer.serialize(stop);
     websocket.broadcastBIN(packer.data(), packer.size());
 
+}
+
+void WiFiMenager::broadcast_status(MachineStatus &data, MsgPack::Packer &packer)
+{
+    packer.clear();
+    packer.serialize(data);
+    websocket.broadcastBIN(packer.data(), packer.size());
 }

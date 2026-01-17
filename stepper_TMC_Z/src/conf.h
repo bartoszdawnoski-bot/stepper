@@ -17,8 +17,8 @@
 
 //Piny dla silnika 3
 #define ENABLE_PIN_3        10
-#define STEP_PIN_3          11
-#define DIR_PIN_3           12
+#define STEP_PIN_3          12
+#define DIR_PIN_3           11
 #define HOLD_PIN_3          21
 
 //konfiguracja SPI
@@ -35,9 +35,9 @@
 //Parametr rezystora pomiarowego i prąd sterownika
 #define R_SENSE_TMC_PLUS    0.022f
 #define R_SENSE_TMC_PRO     0.075f
-#define CURRENT_A           1200.0f //prad silnika X | 1000mA = 1A
-#define CURRENT_B           2500.0f //prad silnika Y  
-#define CURRENT_C           1200.0f // prad silnika Z 
+#define CURRENT_A           2000.0f //prad silnika X | 1000mA = 1A
+#define CURRENT_B           3000.0f //prad silnika Y  
+#define CURRENT_C           700.0f // prad silnika Z 
 
 //Piny do obsługi pozostałych elementów
 #define E_STOP_PIN          14

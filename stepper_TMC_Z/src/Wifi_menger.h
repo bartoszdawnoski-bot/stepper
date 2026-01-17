@@ -130,6 +130,8 @@ public:
     bool isCon();
 
     void send_stop();
+
+    void broadcast_status(MachineStatus &data, MsgPack::Packer &packer);
     
 };
 

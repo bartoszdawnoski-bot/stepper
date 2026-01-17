@@ -263,7 +263,7 @@ bool Stepper::init()
 
     pinMode(DIR_PIN, OUTPUT);
     digitalWrite(DIR_PIN, LOW);
-    pinMode(HOLD_PIN, INPUT);
+    pinMode(HOLD_PIN, INPUT_PULLDOWN);
     
     // Konfiguracja przerwań (handler static)
     if(PIO_instance == pio0)
@@ -381,10 +381,10 @@ void Stepper::setSteps(long double steps)
     // Ustawienie kierunku
     digitalWrite(DIR_PIN, (steps >= 0) ? HIGH : LOW);
     
-    if(this->position == 0 && this->TROPT_PIN != 255)
+    /*if(this->position == 0 && this->TROPT_PIN != 255)
     {
         digitalWrite(this->TROPT_PIN, LOW);
-    }
+    }*/
 
     // Obliczenie pozycji docelowej
     this->futurePosition = (int)steps + this->position;
@@ -395,10 +395,10 @@ void Stepper::setSteps(long double steps)
        return; 
     } 
     digitalWrite(ENABLE_PIN, LOW); // Włącz sterownik silnika
-    if(this->position + steps <= 0 && steps < 0 && this->TROPT_PIN != 255)
+   /* if(this->position + steps <= 0 && steps < 0 && this->TROPT_PIN != 255)
     {
         digitalWrite(this->TROPT_PIN, HIGH);
-    }
+    }*/
 
     // Wyczyść FIFO i wpisz liczbę kroków do SM licznika
     pio_sm_clear_fifos(PIO_instance, SM_counter);
@@ -657,4 +657,11 @@ void Stepper::e_stop()
     pio_sm_set_enabled(PIO_instance, SM_counter, false);
     pio_sm_set_enabled(PIO_instance, SM_speed, false);
     this->isMoving = false;
+    pio_sm_restart(PIO_instance, SM_speed);
+    pio_sm_exec(PIO_instance, SM_speed, pio_encode_jmp(offset_speed));
+    pio_sm_clear_fifos(PIO_instance, SM_speed);
+
+    pio_sm_restart(PIO_instance, SM_counter);
+    pio_sm_exec(PIO_instance, SM_counter, pio_encode_jmp(offset_counter));
+    pio_sm_clear_fifos(PIO_instance, SM_counter);
 }
