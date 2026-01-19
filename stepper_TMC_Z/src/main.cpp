@@ -54,25 +54,16 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
     {
          
         unpacker.feed(payload, length);
-        GcodeCom packet;
+        processedData data_packet;
         // probujemy odpakowac
-        if(unpacker.deserialize(packet))
+        if(unpacker.deserialize(data_packet))
         {
             // jak jest miejsce w kolejce to wrzucamy
             if(!is_cmd_full())
             {
-                processedData data_packet;
-                data_packet.msgType = packet.msgType;
-                
-                strcpy(packet.Gcode, data_packet.Gcode);
-                data_packet.Gcode[63] = '\0';
-
-                data_packet.id = packet.id;
-                data_packet.is_last = packet.is_last;
                 data_packet.client_num = num;
                 comandQueue[cmdhead] = data_packet;
-
-                cmdhead = ( ( cmdhead + 1 ) % BUFFER_SIZE );
+                cmdhead = (cmdhead + 1) % BUFFER_SIZE;
                 Serial.print("[MsgPack] Packet added to queue: " ); Serial.println(data_packet.Gcode);
             }
             else

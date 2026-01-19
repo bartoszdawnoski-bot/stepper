@@ -11,7 +11,29 @@ struct GcodeCom{
     int id;//id komendy
     bool is_last; // Flaga oznaczająca koniec przesyłania pliku
     // Makro biblioteki MsgPack definiujące, które pola mają być serializowane
-    MSGPACK_DEFINE(msgType, Gcode, id, is_last);
+    void to_msgpack(MsgPack::Packer& packer) const {
+        packer.pack(arduino::msgpack::arr_size_t(4));
+        packer.pack(msgType);
+        packer.pack(Gcode);
+        packer.pack(id);
+        packer.pack(is_last);
+    }
+
+    void from_msgpack(MsgPack::Unpacker& unpacker) {
+        arduino::msgpack::arr_size_t sz;
+        if (unpacker.unpack(sz)) {
+            unpacker.unpack(msgType);
+            
+            // Odbieramy String tymczasowo i przepisujemy do char[]
+            String temp;
+            unpacker.unpack(temp);
+            strncpy(Gcode, temp.c_str(), sizeof(Gcode));
+            Gcode[sizeof(Gcode)-1] = 0; // Bezpiecznik
+
+            unpacker.unpack(id);
+            unpacker.unpack(is_last);
+        }
+    }
 };
 
 // Struktura wysyłana do PC (Status maszyny/Potwierdzenie)
@@ -24,7 +46,20 @@ struct MachineStatus{
     int id; //id wykonanej komendy
     bool ack; //ack 
     // Makro biblioteki MsgPack
-    MSGPACK_DEFINE(msgType, state, x, y, z, id, ack);
+    void to_msgpack(MsgPack::Packer& packer) const {
+        packer.pack(arduino::msgpack::arr_size_t(7));
+        packer.pack(msgType);
+        packer.pack(state);
+        packer.pack(x);
+        packer.pack(y);
+        packer.pack(z);
+        packer.pack(id);
+        packer.pack(ack);
+    }
+    
+    void from_msgpack(MsgPack::Unpacker& unpacker) {
+        // Ignorujemy (nie odbieramy statusu)
+    }
 };
 
 struct processedStatus{
@@ -44,6 +79,30 @@ struct processedData{
     int id;//id komendy
     bool is_last; // Flaga oznaczająca koniec przesyłania pliku
     uint8_t client_num;
+
+    void to_msgpack(MsgPack::Packer& packer) const {
+        packer.pack(arduino::msgpack::arr_size_t(4)); 
+        packer.pack(msgType);
+        packer.pack(Gcode);
+        packer.pack(id);
+        packer.pack(is_last);
+    }
+
+    void from_msgpack(MsgPack::Unpacker& unpacker) {
+        arduino::msgpack::arr_size_t sz;
+        if (unpacker.unpack(sz)) { 
+            unpacker.unpack(msgType);
+
+            // FIX: Odbierz jako String -> przepisz do char[]
+            String temp;
+            unpacker.unpack(temp);
+            strncpy(Gcode, temp.c_str(), sizeof(Gcode));
+            Gcode[sizeof(Gcode)-1] = 0; // Bezpiecznik
+
+            unpacker.unpack(id);
+            unpacker.unpack(is_last);
+        }
+    }
 };
 
 #endif
