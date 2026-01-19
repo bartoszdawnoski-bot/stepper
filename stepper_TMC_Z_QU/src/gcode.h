@@ -38,13 +38,9 @@ private:
     };
 
     // tutaj trzymamy stan gdzie maszyna jest i jak szybko jedzie
-    long stepX = 0.0f;
-    long stepY = 0.0f;
-    long stepZ = 0.0f;
-    float rotation = 0.0f;
-    float fSpeedX = 0.0f;
-    float fSpeedY = 0.0f;
-    float fSpeedZ = 0.0f;
+    float current_pos_x = 0.0f;
+    float current_pos_y = 0.0f;
+    float current_pos_z = 0.0f;
     bool relative_mode = false; // czy jedziemy relatywnie czy absolutnie
     long last_stepX = 0.0f;
     long last_stepY = 0.0f;
@@ -55,6 +51,7 @@ private:
     Stepper* stepperY; ///< Wskaźnik na silnik wrzeciona.
     Stepper* stepperZ; ///< Wskaźnik na silnik napinacza (opcjonalny)
 
+    float current_feedrate_mm_min = 500.0f;
     /**
      * @brief Wewnętrzna funkcja wykonująca sparsowaną komendę.
      * Oblicza trajektorię, prędkości i wysyła komendy do sterowników silników.
@@ -101,6 +98,8 @@ public:
     void update_settings(float sx, float sy, float sz, float st_mm, float st_rot, float st_br);
 
     bool is_em_stopped();
+
+    void em_stopp();
 };
 
 #endif
