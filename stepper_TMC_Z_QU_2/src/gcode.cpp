@@ -67,18 +67,53 @@ void GCode::execute_parse()
         if(num == 28)
         {
             move_complete();
-            stepperX->setSpeed(factor.v_max_x);
-            stepperY->setSpeed(factor.v_max_y);
-            stepperX->zero();
-            stepperY->zero();
+            if(Serial) Serial.println("[GCODE] Homing procedure started");
+
+            stepperX->setSpeed(factor.v_max_x * 0.4f);
+            stepperX->setSteps(-1000000.0);
+            Stepper::moveSteps();
+            move_complete();
+            /*
+            stepperX->setSpeed(factor.v_max_x * 0.4f);
+            stepperX->moveThis(this->factor.steps_perMM_x); 
+            move_complete();
+            */
+            stepperX->setZero();
+
+            stepperY->setSpeed(factor.v_max_y * 0.4f);
+            stepperY->setSteps(-1000000.0);
+            Stepper::moveSteps();
+            move_complete();
+            stepperY->setZero();
 
             last_stepX = 0;
             last_stepY = 0;
+            last_stepZ = 0;
+            current_pos_x = 0;
+            current_pos_y = 0;
+            current_pos_z = 0;
+            if(Serial) Serial.println("[GCODE] Homing Done");
+            return;
+        }
+        if(num == 30)
+        {
+            move_complete();
+            if(Serial) Serial.println("[GCODE] Returning to software home (0,0,0)...");
+
+            // Ustawiamy pełną prędkość
+            stepperX->setSpeed(factor.v_max_x * 0.5);
+            stepperY->setSpeed(factor.v_max_y * 0.5);
+            stepperX->zero();
+            stepperY->zero();          
+            move_complete();
 
             current_pos_x = 0;
             current_pos_y = 0;
-            if(Serial) Serial.println("[GCODE] Homed");
-
+            current_pos_z = 0;
+            last_stepX = 0;
+            last_stepY = 0;
+            last_stepZ = 0;
+            
             return;
         }
         if(num == 1 || num == 0)
@@ -120,22 +155,20 @@ void GCode::execute_parse()
             float delta_unit_z = next_pos_z - current_pos_z;
 
             float total_dist = sqrtf(delta_mm_x*delta_mm_x + delta_unit_y*delta_unit_y + delta_unit_z*delta_unit_z);
-            // Obliczanie DELTA 
             long targetStepX = steps_from_MM(next_pos_x, factor.steps_perMM_x);
             long targetStepY = steps_from_rotation(next_pos_y, factor.steps_per_rotation_c);
             long targetStepZ = last_stepZ;
+
             if(stepperZ)
              {
                 int micro_z = stepperZ->get_microsteps();
                 targetStepZ = (long)(next_pos_z * factor.steps_per_rotation_z * micro_z);
             }
 
-            // Jeśli brak ruchu, kończymy
             long diffX = targetStepX - last_stepX;
             long diffY = targetStepY - last_stepY;
             long diffZ = targetStepZ - last_stepZ;
 
-            // Zamiana F (mm/min) na mm/sec
             if (diffX == 0 && diffY == 0 && diffZ == 0) 
             {
                 current_pos_x = next_pos_x;
@@ -184,8 +217,8 @@ void GCode::execute_parse()
                 if(stepperZ != nullptr) Serial.print(" Speed Y:"); Serial.println(vZ);
             }*/
 
-            // Pchnij kolejkę jeśli silniki stały, to teraz ruszą
             Stepper::moveSteps();
+            
             //Zapamiętanie pozycji
             last_stepX = targetStepX;
             last_stepY = targetStepY;

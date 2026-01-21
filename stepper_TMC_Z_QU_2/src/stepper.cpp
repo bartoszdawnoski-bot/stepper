@@ -159,7 +159,7 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold, 
 
     pinMode(ENABLE_PIN, OUTPUT);
     digitalWrite(ENABLE_PIN, HIGH); // Domyślnie wyłącz silnik
-    if(TROPT_PIN != 255)pinMode(TROPT_PIN, OUTPUT);// Domyslnie wkrac krancowke
+    if(TROPT_PIN != 255)pinMode(TROPT_PIN, OUTPUT);// Jesli jest ustaw wyjscie krancowki krancowke
     this->sys_clock = (float)clock_get_hz(clk_sys);
     // Rejestracja instancji w odpowiedniej tablicy PIO (dla obsługi przerwań analogicznie dla pio1 i pio2)
     if(PIO_instance == pio0)
@@ -334,14 +334,14 @@ void Stepper::initTMC(uint16_t cs, float r_sense, uint16_t current_ma)
 
 void Stepper::loadToPIO(long steps, float speed) {
     digitalWrite(DIR_PIN, (steps >= 0) ? HIGH : LOW);
-    
-    if(this->position == 0 && this->TROPT_PIN != 255) digitalWrite(this->TROPT_PIN, LOW);
-    
     this->futurePosition = (int)steps + this->position;
-    
-    if(this->position + steps <= 0 && steps < 0 && this->TROPT_PIN != 255) {
-        digitalWrite(this->TROPT_PIN, HIGH);
-        delayMicroseconds(50);
+
+    if(this->TROPT_PIN != 255)
+    {
+        // Sprawdz czy AKTUALNA lub PRZYSZŁA pozycja jest w strefie zagrożenia
+        bool in_danger_zone = (abs(this->position) < SAFE_HOMING_ZONE) || (abs(this->futurePosition) < SAFE_HOMING_ZONE);
+        if(in_danger_zone) digitalWrite(this->TROPT_PIN, HIGH);
+        else digitalWrite(this->TROPT_PIN, LOW);
     }
 
     if(speed <= 0.01f) speed = 0.1f;

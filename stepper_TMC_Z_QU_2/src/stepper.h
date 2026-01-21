@@ -13,6 +13,7 @@
 
 #define LENGHT 2 ///< Maksymalna liczba silników na jedną instancję PIO.
 #define MOTION_BUFFER_SIZE 8 ///< Rozmiar bufora ruchów dla jednego silnika
+#define SAFE_HOMING_ZONE 200 ///< Zakres kroków gdzie krańcówka działa
 
 /**
  * @class Stepper

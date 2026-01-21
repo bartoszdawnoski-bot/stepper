@@ -4,9 +4,16 @@
 #include "packets.h"
 #include "conf.h"
 #include <SPI.h>
+#include <malloc.h>
 
 // Rozmiar buforów komunikacyjnych 
 const int BUFFER_SIZE = 256;
+
+//Uzywane zmienne
+unsigned long last_wifi_retry = 0;
+const int BATCH_SIZE = 15; // Wyślij max 15 pakietów na jeden obrót pętli
+int processed_count = 0;
+int global_packet_counter = 0;
 
 // ________PAMIĘĆ WSPÓLNA________
 
@@ -44,6 +51,18 @@ GCode procesor(&motorA, &motorB, &motorC);
 // Menedżer WiFi obsługujący WebSockets i mDNS
 WiFiMenager wifi;
 
+void printMemoryDebug(int counter) {
+    struct mallinfo m = mallinfo();
+    
+    uint32_t free_ram = m.fordblks; 
+    
+    Serial.print("[MEM] Pkt: ");
+    Serial.print(counter);
+    Serial.print(" | Wolny RAM: ");
+    Serial.print(free_ram);
+    Serial.println(" bajtów");
+}
+
 // ________CALLBACK WIFI________ 
 // Funkcja wywoływana automatycznie, gdy przyjdą dane z sieci
 void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t type) 
@@ -51,6 +70,13 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
     // Czeaka tylko na dane binarne czyli MsgPack
     if (type == WStype_BIN) 
     {
+        
+        global_packet_counter++;
+        if (global_packet_counter % 100 == 0) 
+        {
+            printMemoryDebug(global_packet_counter);
+        }
+
         unpacker.feed(payload, length);
         GcodeCom packet;
         while(unpacker.deserialize(packet))
@@ -80,31 +106,35 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
         }
         
     }
-    // Opcjonalnie obsługa tekstu 
     else if (type == WStype_TEXT) 
     {
-        String txt = String((char*)payload);
-        if (num == 255 && !is_cmd_empty())
+        if (length > 0 && payload != nullptr) 
         {
-            if(Serial) Serial.println("[Jog] Machine Busy!");
-            return; 
-        }
-        if(txt.startsWith("G")) 
-        {
-            processedData packet;
-            strncpy(packet.Gcode, txt.c_str(), MAX_GCODE_LEN);
-            packet.Gcode[MAX_GCODE_LEN - 1] = '\0';  
-            packet.id = 0;     
-            packet.is_last = true;
-            packet.client_num = num;
-            
-            if(!is_cmd_full()) {
-                comandQueue[cmdhead] = packet;
-                cmdhead = (cmdhead + 1) % BUFFER_SIZE;
-                if(Serial) Serial.println("[Jog] Added to queue: " + txt);
+            if (num == 255 && !is_cmd_empty())
+            {
+                 if(Serial) Serial.println("[Jog] Machine Busy!");
+                 return; 
+            }
+
+            if (payload[0] == 'G' || payload[0] == 'M') 
+            {
+                processedData packet;
+                size_t copy_len = (length < MAX_GCODE_LEN) ? length : (MAX_GCODE_LEN - 1);
+                memcpy(packet.Gcode, payload, copy_len);
+                packet.Gcode[copy_len] = '\0';  
+                
+                packet.id = 0;     
+                packet.is_last = true;
+                packet.client_num = num;
+                
+                if(!is_cmd_full()) 
+                {
+                    comandQueue[cmdhead] = packet;
+                    cmdhead = (cmdhead + 1) % BUFFER_SIZE;
+                }
             }
         }        
-    }   
+    }
 }
 
 // ________CORE 0 STEROWANIE RUCHEM________
@@ -166,28 +196,41 @@ void setup1()
     Serial.println("[Core 1] WIFI ready");
 }
 
-unsigned long last_retry = 0;
-
 void loop() 
 {   
-    if(digitalRead(E_STOP_PIN) == HIGH) { // Zakładam aktywny stan HIGH
-        motorA.e_stop();
-        motorB.e_stop();
-        motorC.e_stop();
-        procesor.em_stopp();
+   if(digitalRead(E_STOP_PIN) == HIGH) 
+   { 
+        if(!procesor.is_em_stopped()) 
+        {
+            Serial.println("[MAIN] EMERGENCY STOP TRIGGERED!");
+            motorA.e_stop();
+            motorB.e_stop();
+            motorC.e_stop();
+            procesor.em_stopp();
+            
+            cmdhead = 0;
+            cmdtail = 0;
+            ackhead = 0;
+            acktail = 0;
+        }
     }
 
-    if(procesor.is_em_stopped() && (millis() - last_retry > 5000))
+    if(procesor.is_em_stopped())
     {
-        last_retry = millis();
-        Serial.println("[MAIN] EMERGENCY STOP");
-
+            cmdhead = 0;
+            cmdtail = 0;
+            ackhead = 0;
+            acktail = 0;
     }
 
-    if(digitalRead(E_STOP_PIN) == LOW) procesor.em_stopp_f();
+   if(digitalRead(E_STOP_PIN) == LOW && procesor.is_em_stopped()) 
+   {
+        Serial.println("[MAIN] E-STOP RELEASED. ");
+        procesor.em_stopp_f(); 
+    }
 
     // Sprawdzanie czy są nowe komendy od Core 1
-   if(!is_cmd_empty() && !is_ack_full())
+   if(!procesor.is_em_stopped() && !is_cmd_empty() && !is_ack_full())
     {
         // 1. Pobranie zadania
         processedData task = comandQueue[cmdtail];
@@ -211,9 +254,7 @@ void loop()
         ackhead = (ackhead + 1) % BUFFER_SIZE;
     }
 }
-unsigned long last_wifi_retry = 0;
-const int BATCH_SIZE = 15; // Wyślij max 15 pakietów na jeden obrót pętli
- int processed_count = 0;
+
 void loop1() 
 {
     // Obsługa stosu sieciowego czyli utrzymanie połączenia, ping-pong, odbiór danych
@@ -231,10 +272,12 @@ void loop1()
             wifi.reconnect(); 
         }
     }
-    /*if(procesor.is_em_stopped())
+
+    if(procesor.is_em_stopped())
     {
         wifi.send_stop();
-    }*/
+    }
+
     //sprawdzenie zmiany ustawien 
     if (wifi.config_changed)
     {
