@@ -81,6 +81,7 @@ private:
     int position, remaining_steps, futurePosition;
     volatile bool isMoving;
     bool Enable;
+    bool is_zero_seted;
 
     volatile MotionCommand motionBuffer[MOTION_BUFFER_SIZE];
     volatile uint8_t head = 0; // indeks zapisu

@@ -75,19 +75,13 @@ void GCode::execute_parse()
             Stepper::moveSteps();
             move_complete();
             digitalWrite(TRANSOPT_PIN_A, LOW);
-            /*
-            stepperX->setSpeed(factor.v_max_x * 0.4f);
-            stepperX->moveThis(this->factor.steps_perMM_x); 
-            move_complete();
-            */
-            stepperX->setZero();
+
             digitalWrite(TRANSOPT_PIN_B, HIGH);
             stepperY->setSpeed(factor.v_max_y * 0.4f);
             stepperY->setSteps(-1000000.0);
             Stepper::moveSteps();
             move_complete();
             digitalWrite(TRANSOPT_PIN_B, LOW);
-            stepperY->setZero();
 
             last_stepX = 0;
             last_stepY = 0;

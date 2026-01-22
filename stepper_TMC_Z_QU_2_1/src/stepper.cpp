@@ -551,7 +551,7 @@ void Stepper::PIO_ISR_Handler()
         this->isMoving = false;
         pio_sm_set_enabled(PIO_instance, SM_counter, false);
         pio_sm_set_enabled(PIO_instance, SM_speed, false);
-            
+        digitalWrite(this->ENABLE_PIN, HIGH); 
         return; 
     }
 
@@ -734,6 +734,7 @@ bool Stepper::get_tmc()
 
 void Stepper::e_stop()
 {
+    digitalWrite(this->ENABLE_PIN, HIGH);
     pio_sm_set_enabled(PIO_instance, SM_counter, false);
     pio_sm_set_enabled(PIO_instance, SM_speed, false);
     this->isMoving = false;
@@ -748,6 +749,8 @@ void Stepper::e_stop()
     pio_sm_restart(PIO_instance, SM_counter);
     pio_sm_exec(PIO_instance, SM_counter, pio_encode_jmp(offset_counter));
     pio_sm_clear_fifos(PIO_instance, SM_counter);
+
+    hw_clear_bits(&PIO_instance->irq, 0xFF);
 }
 
 bool Stepper::isBufferFull()
