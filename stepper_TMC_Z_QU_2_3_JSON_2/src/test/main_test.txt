@@ -1,0 +1,40 @@
+--------------TEST_GCODE_STEPPER--------------
+
+void setup() {
+    Serial.begin(115200);
+    while(!Serial){delay(10);}
+    delay(2000); 
+    Serial.println("--- G-CODE TESTER---");
+
+    if (!motorA.init() || !motorB.init()) 
+    {
+        Serial.println("BLAD: Nie udalo sie zainicjowac silnikow (PIO/SM).");
+        while(1);
+    }
+    Serial.println("Silniki A i B zainicjowane poprawnie.");
+    Serial.println("Wózek: X [mm] | Wrzeciono: Y/C [obroty]");
+    Serial.println("Wpisz komendę (np. G1 X10 F5 Y2.5)");
+    motorA.setEnable(true);
+    motorB.setEnable(true);
+}
+
+void loop() {
+    while (Serial.available()) 
+    {
+        char inChar = (char)Serial.read();
+        inputString += inChar;
+        if (inChar == '\n' || inChar == '\r') 
+        {
+            inputString.trim(); 
+            if (inputString.length() > 0) 
+            {
+                Serial.print("Odebrano: ");
+                Serial.println(inputString);
+                procesor.processLine(inputString);
+                procesor.move_complete();
+            }
+            inputString = "";
+        }
+    }
+}
+
