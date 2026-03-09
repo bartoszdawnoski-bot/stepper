@@ -598,8 +598,8 @@ bool WiFiMenager::send_json(uint8_t client_num, MachineStatus &data)
     JsonObject obj = doc.to<JsonObject>();
     data.to_json(obj);
 
-    String output;
-    serializeJson(doc, output);
+    char buffer[256];
+    size_t len = serializeJson(doc, buffer, sizeof(buffer));
     
-    return websocket.sendTXT(client_num, output);
+    return websocket.sendTXT(client_num, (uint8_t*)buffer, len);
 }

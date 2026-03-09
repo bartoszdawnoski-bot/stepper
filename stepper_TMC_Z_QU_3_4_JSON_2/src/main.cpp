@@ -312,7 +312,7 @@ void loop1()
         acktail = (acktail + 1) % BUFFER_SIZE;
         processed_count++;
 
-        if(millis() - last_wifi_ping > 500)
+        if(millis() - last_wifi_ping > 200)
         {
             last_wifi_ping = millis();
             wifi.run(); 
