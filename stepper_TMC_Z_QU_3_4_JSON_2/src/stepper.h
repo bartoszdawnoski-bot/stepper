@@ -12,7 +12,7 @@
 #include "conf.h"
 
 #define LENGHT 2 ///< Maksymalna liczba silników na jedną instancję PIO.
-#define MOTION_BUFFER_SIZE 32 ///< Rozmiar bufora ruchów dla jednego silnika
+#define MOTION_BUFFER_SIZE 8 ///< Rozmiar bufora ruchów dla jednego silnika
 
 /**
  * @class Stepper

@@ -56,14 +56,10 @@ void e_stop_isr()
     static unsigned long last_interrupt_time = 0;
     unsigned long interrupt_time = millis();
     
-    if (interrupt_time - last_interrupt_time > 50) 
+    if (interrupt_time - last_interrupt_time > 100) 
     {
         if(digitalRead(E_STOP_PIN) == HIGH) 
         {
-            motorA.e_stop();
-            motorB.e_stop();
-            motorC.e_stop();
-            procesor.em_stopp(); 
             e_stop_triggered_isr = true;
         }
     }
@@ -164,7 +160,7 @@ void setup()
     pinMode(TRANSOPT_PIN_A, OUTPUT);
     pinMode(TRANSOPT_PIN_B, OUTPUT);
     pinMode(E_STOP_PIN, INPUT);
-    attachInterrupt(digitalPinToInterrupt(E_STOP_PIN), e_stop_isr, RISING);
+    attachInterrupt(digitalPinToInterrupt(E_STOP_PIN), e_stop_isr, FALLING);
 
     // Inicjalizacja silników
     if(motorA.init() && motorB.init() && motorC.init())
@@ -208,32 +204,39 @@ void setup1()
 
 void loop() 
 {   
-   if (e_stop_triggered_isr) {
-        Serial.println("[MAIN] EMERGENCY STOP TRIGGERED (ISR)!");
+    if (e_stop_triggered_isr) {
+        Serial.println("[MAIN] EMERGENCY STOP TRIGGERED!");
+        
+        motorA.e_stop();
+        motorB.e_stop();
+        motorC.e_stop();
+        procesor.em_stopp(); 
+        
         e_stop_triggered_isr = false; 
     }
 
-   if(digitalRead(E_STOP_PIN) == LOW && procesor.is_em_stopped()) 
-   {
-        Serial.println("[MAIN] E-STOP RELEASED. ");
-        procesor.em_stopp_f(); 
+    if(digitalRead(E_STOP_PIN) == LOW && procesor.is_em_stopped()) 
+    {
+        delay(50); 
+        if(digitalRead(E_STOP_PIN) == LOW) 
+        {
+            Serial.println("[MAIN] E-STOP RELEASED.");
+            procesor.em_stopp_f(); 
+            procesor.processLine("M84");
+        }
     }
 
     processedData task;
-    // Sprawdzanie czy są nowe komendy od Core 1
     if(!procesor.is_em_stopped() && !is_cmd_empty() && !is_ack_full())
     {
-        // 1. Pobranie zadania
         processedData task = comandQueue[cmdtail];
         cmdtail = (cmdtail + 1) % BUFFER_SIZE;
 
-        // 2. Wykonanie zadania (To może być szybkie G90 lub wolne G1)
         if(strnlen(task.Gcode, MAX_GCODE_LEN) > 0)
         {
             procesor.processLine(task.Gcode); 
         } 
         
-        // 3. Wysłanie ACK (Mamy GWARANCJĘ miejsca, bo sprawdziliśmy to w ifie wyżej)
         processedStatus ack;
         ack.msgType = task.msgType;
         ack.id = task.id;
@@ -248,7 +251,6 @@ void loop()
 
 void loop1() 
 {
-    // Obsługa stosu sieciowego czyli utrzymanie połączenia, ping-pong, odbiór danych
     if(wifi.isCon())
     {
         wifi.run(); 
@@ -269,21 +271,16 @@ void loop1()
         wifi.send_stop();
     }
 
-    //sprawdzenie zmiany ustawien 
     if (wifi.config_changed)
     {
-        // Zmienne tymczasowe do wczytania nowych wartości
         float sx, sy, sz, st_mm, st_rot, st_br;
         
-        // Próba wczytania nowego pliku
         if (wifi.load_config(sx, sy, sz, st_mm, st_rot, st_br)) 
         {
-            // Aktualizacja ustawień w obiekcie GCode
             procesor.update_settings(sx, sy, sz, st_mm, st_rot, st_br);
             Serial.println("[Config] Settings loaded from config.json");
         }
         
-        // Reset flagi, żeby nie wczytywać w kółko
         wifi.config_changed = false;
     }
 
@@ -297,7 +294,6 @@ void loop1()
         strncpy(ack_to_send.state, ackQueue[acktail].state, STATE_LEN);
         
         bool success = true;
-        // Wyślij potwierdzenie do PC przez WebSocket
        if(ackQueue[acktail].target_client != 255)
         {
             success = wifi.send_json(ackQueue[acktail].target_client , ack_to_send);   
