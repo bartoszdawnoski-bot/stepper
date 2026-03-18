@@ -12,7 +12,6 @@ const int BUFFER_SIZE = 256;
 bool core1_separate_stack = true;
 
 //Uzywane zmienne
-unsigned long last_wifi_retry = 0;
 const int BATCH_SIZE = 15; 
 int processed_count = 0;
 int global_packet_counter = 0;
@@ -193,8 +192,19 @@ void setup()
 // ________CORE 1 KOMUNIKACJA WIFI________
 void setup1()
 {
+    int reconnect_counter = 0;
     // Próba połączenia z WiFi i uruchomienia mDNS
-    while(!wifi.init()) { delay(1); }
+    while(!wifi.init() && reconnect_counter <= 8) 
+    { 
+        delay(1);
+        reconnect_counter++; 
+    }
+
+    if(!wifi.isCon())
+    {
+        wifi.ap_wizard();
+    }
+
     float sx = 200.0f, sy = 200.0f, sz = 200.0f ,st_mm = 200.0f, st_rot = 200.0f, st_br = 200.0f;
 
     if (wifi.load_config(sx, sy, sz, st_mm, st_rot, st_br)) 
@@ -240,7 +250,7 @@ void loop()
     if(!procesor.is_em_stopped() && !is_cmd_empty() && !is_ack_full())
     {
         mutex_enter_blocking(&cmd_mutex);
-        processedData task = comandQueue[cmdtail];
+        task = comandQueue[cmdtail];
         cmdtail = (cmdtail + 1) % BUFFER_SIZE;
         mutex_exit(&cmd_mutex);
 
@@ -256,7 +266,7 @@ void loop()
         ack.target_client = task.client_num;
         ack.ack = true;
 
-        mutex_enter_blocking(&cmd_mutex);
+        mutex_enter_blocking(&ack_mutex);
         ackQueue[ackhead] = ack;
         ackhead = (ackhead + 1) % BUFFER_SIZE;
         mutex_exit(&ack_mutex);
@@ -265,25 +275,10 @@ void loop()
 
 void loop1() 
 {
-    if(wifi.isCon())
-    {
-        wifi.run(); 
-        last_wifi_retry = 0; 
-    }
-    else
-    {
-        
-        if(millis() - last_wifi_retry > 5000)
-        {
-            last_wifi_retry = millis();
-            wifi.reconnect(); 
-        }
-    }
+    if(wifi.isCon()) wifi.run(); 
+    else wifi.reconnect(); 
+    if(procesor.is_em_stopped()) wifi.send_stop();
 
-    if(procesor.is_em_stopped())
-    {
-        wifi.send_stop();
-    }
 
     if (wifi.config_changed)
     {
@@ -301,16 +296,19 @@ void loop1()
     processed_count = 0;
     while(!is_ack_empty() && processed_count < BATCH_SIZE)
     {
-        mutex_enter_blocking(&ack_mutex);
         MachineStatus ack_to_send; 
+        uint8_t current_target_client;
+
+        mutex_enter_blocking(&ack_mutex);
         ack_to_send.ack = ackQueue[acktail].ack;
         ack_to_send.id = ackQueue[acktail].id;
         ack_to_send.msgType = ackQueue[acktail].msgType;
         strncpy(ack_to_send.state, ackQueue[acktail].state, STATE_LEN);
+        current_target_client = ackQueue[acktail].target_client;
         mutex_exit(&ack_mutex);
         
         bool success = true;
-       if(ackQueue[acktail].target_client != 255)
+       if(current_target_client != 255)
         {
             success = wifi.send_json(ackQueue[acktail].target_client , ack_to_send);   
         }

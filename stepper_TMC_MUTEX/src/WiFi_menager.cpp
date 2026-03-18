@@ -24,7 +24,32 @@ const char* BLOCKED_CONFIG_HTML =
                 </div>
             </body>
         </html>
-    )rawliteral";
+    )rawliteral"
+;
+
+const char* AP_CONFIG_HTML = 
+R"rawliteral( 
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+            <title>WiFi Setup</title>
+            <style>
+                body{font-family:sans-serif;text-align:center;margin:50px;background:#f4f4f4;}
+                input{margin:10px;padding:10px;font-size:16px;width:90%;max-width:300px;border:1px solid #ccc;border-radius:5px;}
+                button{padding:12px 20px;font-size:16px;cursor:pointer;background:#007bff;color:white;border:none;border-radius:5px;width:90%;max-width:320px;}
+            </style>
+        </head>
+        <body>
+            <h2>Konfiguracja WiFi</h2>
+            <form action=\"/save\" method=\"POST\">
+            <input type=\"text\" name=\"ssid\" placeholder=\"Nazwa sieci (SSID)\" required><br>
+            <input type=\"password\" name=\"pass\" placeholder=\"Haslo (zostaw puste jesli brak)\"><br>
+            <button type=\"submit\">Zapisz i Restartuj</button>
+            </form>
+        </body>
+    </html>
+)rawliteral";
 
 // Konstruktor przepisuje char* do String (automatycznie)
 WiFiMenager::WiFiMenager(char* ssid, char* pass):
@@ -211,31 +236,19 @@ void WiFiMenager::ap_wizard()
         Serial.print("[AP WIZARD] Go to the address in your browser: ");
         Serial.println(WiFi.softAPIP());
     }
-
+    if(MDNS.begin(this->host_name))
+    {
+        MDNS.addService("http", "tcp", this->port_http);
+    }
     server.on("/", HTTP_GET, [this]() {
-        String html = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
-        html += "<title>WiFi Setup</title>";
-        html += "<style>body{font-family:sans-serif;text-align:center;margin:50px;background:#f4f4f4;}";
-        html += "input{margin:10px;padding:10px;font-size:16px;width:90%;max-width:300px;border:1px solid #ccc;border-radius:5px;}";
-        html += "button{padding:12px 20px;font-size:16px;cursor:pointer;background:#007bff;color:white;border:none;border-radius:5px;width:90%;max-width:320px;}</style></head>";
-        html += "<body><h2>Konfiguracja WiFi</h2>";
-        html += "<form action=\"/save\" method=\"POST\">";
-        html += "<input type=\"text\" name=\"ssid\" placeholder=\"Nazwa sieci (SSID)\" required><br>";
-        html += "<input type=\"password\" name=\"pass\" placeholder=\"Haslo (zostaw puste jesli brak)\"><br>";
-        html += "<button type=\"submit\">Zapisz i Restartuj</button>";
-        html += "</form></body></html>";
-
-        server.send(200, "text/html", html);
+        server.send(200, "text/html", AP_CONFIG_HTML);
     });
 
     server.on("/save", HTTP_POST, [this]() {
         String new_ssid = server.arg("ssid");
         String new_pass = server.arg("pass");
 
-        if(Serial) 
-        {
-            Serial.println("[AP WIZARD] New SSID: " + new_ssid);
-        }
+        if(Serial)  Serial.println("[AP WIZARD] New SSID: " + new_ssid);
 
         StaticJsonDocument<1024> doc;
         if(LittleFS.exists("/config.json")) 
@@ -265,6 +278,7 @@ void WiFiMenager::ap_wizard()
     while(true) 
     {
         server.handleClient();
+        MDNS.update();
         delay(10);
     }
 
@@ -558,10 +572,22 @@ void WiFiMenager::reconnect()
     if(this->ssid != "" && this->password != "") 
     {
         int retry = 0;
+
         if(Serial) Serial.println("[WiFi] Reconnecting...");
-        WiFi.disconnect(); 
-        WiFi.begin(this->ssid.c_str(), this->password.c_str());
         if(Serial) Serial.println();
+
+        WiFi.disconnect(); 
+        delay(100);
+
+        WiFi.begin(this->ssid.c_str(), this->password.c_str());
+
+        while (WiFi.status() != WL_CONNECTED && retry <= 10)
+        {
+            delay(500);
+            if(Serial) Serial.print('.');
+            retry++;
+        }
+
         if(WiFi.status() == WL_CONNECTED)
         {
             if(Serial)
