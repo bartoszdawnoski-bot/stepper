@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Konfiguracja Nawijarki</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9; color: #333; padding: 20px; max-width: 500px; margin: 0 auto; }
+    h2 { text-align: center; color: #444; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+    input { width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+    button { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background 0.3s; }
+    button:hover { background-color: #218838; }
+    #homeButton:hover {background-color:#444;} 
+    #homeButton {background-color: #666; margin-bottom: 25px;}
+    #homeButton:active {background-color: #333;}
+    #status { margin-top: 15px; text-align: center; font-size: 0.9em; min-height: 20px; }
+
+    .loading { color: #666; }
+    .success { color: green; }
+    .error { color: red; }
+    .jog-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+    .btn-jog { background: #007bff; font-weight: bold; }
+    .btn-jog:active { background: #0056b3; }
+    .status-idle { color: green; font-weight: bold; }
+    .status-busy { color: red; font-weight: bold; }
+    .btn-save { background: #28a745; }
+    .card { background: white; padding: 20px; margin-bottom: 20px; margin-top: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+
+  
+  
+  <div class="card">
+    <h2>Ustawienia nawijarki</h2>
+    <form id="configForm">
+      
+      <label for="max_speed_x">Max Prędkość Wózka (X) [mm/s]:</label>
+      <input type="number" id="max_speed_x" name="max_speed_x" step="0.1" required>
+
+      <label for="max_speed_y">Max Prędkość Wrzeciona (Y) [obr/s]:</label>
+      <input type="number" id="max_speed_y" name="max_speed_y" step="0.1" required>
+
+      <label for="max_speed_y">Max Prędkość Koła Hamującego (Z) [obr/s]:</label>
+      <input type="number" id="max_speed_z" name="max_speed_z" step="0.1" required>
+
+      <label for="steps_mm">Kroki na mm (Oś X):</label>
+      <input type="number" id="steps_mm" name="steps_mm" step="0.01" required>
+
+      <label for="steps_rot">Kroki na obrót (Oś Y):</label>
+      <input type="number" id="steps_rot" name="steps_rot" step="0.01" required>
+
+      <label for="steps_rot">Kroki na obrót (Oś Z):</label>
+      <input type="number" id="steps_br" name="steps_br" step="0.01" required>
+
+      <button type="submit" id="saveBtn">Zapisz Ustawienia</button>
+    </form>
+    <div id="status"></div>
+  </div>
+
+  <div class="card">
+    <h2> Sterowanie Ręczne</h2>
+    <p>Status: <span id="machineState" class="status-idle">GOTOWY</span></p>
+    
+    <label>Prędkość (Feedrate): <span id="fr-val">500</span> mm/min</label>
+    <input type="range" id="feedrate" min="50" max="5000" step="10" value="500" oninput="document.getElementById('fr-val').innerText=this.value">
+
+    <label>Oś X (Wózek):</label>
+      <div class="jog-grid">
+        <button class="btn-jog" onclick="jog('X', -10)">- 10mm</button>
+        <button class="btn-jog" onclick="jog('X', -1)">- 1mm</button>
+        <button class="btn-jog" onclick="jog('X', 1)">+ 1mm</button>
+        <button class="btn-jog" onclick="jog('X', 10)">+ 10mm</button>
+      </div>
+      <br/>
+    <label>Oś Y (Wrzeciono):</label>
+      <div class="jog-grid">
+        <button class="btn-jog" onclick="jog('Y', -90)">- 90°</button>
+        <button class="btn-jog" onclick="jog('Y', 45)">+ 45°</button>
+        <button class="btn-jog" onclick="jog('Y', 90)">+ 90°</button>
+        <button class="btn-jog" onclick="jog('Y', 180)">+ 180°</button>
+      </div>
+      <br/>
+    <label>Oś Z (Koło Hamujące):</label>
+      <div class="jog-grid">
+        <button class="btn-jog" onclick="jog('Z', -90)">- 90°</button>
+        <button class="btn-jog" onclick="jog('Z', 45)">+ 45°</button>
+        <button class="btn-jog" onclick="jog('Z', 90)">+ 90°</button>
+        <button class="btn-jog" onclick="jog('Z', 180)">+ 180°</button>
+      </div>
+      <br/>
+      <button class="btn-jog" id="homeButton"  onclick="home()">BAZOWANIE</button>
+  </div>
+  <div class="card">
+    <h2>Terminal G-Code</h2>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <input type="text" id="gcodeInput" placeholder="np. G1 X50 F500" style="margin-bottom: 0;">
+      <button onclick="sendCustomGcode()" style="width: auto; white-space: nowrap;">Wyślij</button>
+    </div>
+      <p style="font-size: 0.8em; color: #666; margin-top: 5px;">
+        Przykłady: <code>G28</code> (Bazowanie), <code>G1 X100</code> (Ruch)
+      </p>
+    </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const saveBtn = document.getElementById('saveBtn');
+
+    function sendCustomGcode() {
+      var cmd = document.getElementById('gcodeInput').value.trim();
+      
+      if (!cmd) {
+        alert("Wpisz komendę!");
+        return;
+      }
+
+      console.log("Wysyłam własny G-Code: " + cmd);
+      fetch('/api/jog?cmd=' + encodeURIComponent(cmd))
+        .then(function(response) {
+            if (response.ok) {
+                console.log("Wysłano: " + cmd);
+                // Opcjonalnie wyczyść pole po wysłaniu:
+                document.getElementById('gcodeInput').value = ''; 
+                return response.text();
+            } else {
+                throw new Error("Błąd serwera: " + response.status);
+            }
+        })
+        .then(function(text) {
+            console.log("Odpowiedź: " + text);
+        })
+        .catch(function(error) {
+            alert("Błąd wysyłania komendy:\n" + error);
+        });
+    }
+    document.getElementById('gcodeInput').addEventListener(
+    "keypress", function(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        sendCustomGcode();
+      }
+    });
+
+    function jog(axis, dist) {
+      // Pobieramy prędkość z suwaka
+      var speed = document.getElementById('feedrate').value;
+      
+      console.log("Wysyłam komendę dla osi " + axis);
+      let finalDist = dist;
+      if (axis === 'Y' || axis === 'Z') 
+      {
+          finalDist = (dist / 360.0).toFixed(4);
+      }
+      fetch('/api/jog?axis=' + axis + '&dist=' + finalDist + '&speed=' + speed)
+        .then(function(response) {
+            if (response.ok) {
+                console.log("Sukces!");
+                return response.text();
+            } else {
+                throw new Error("Błąd serwera: " + response.status);
+            }
+        })
+        .then(function(text) {
+            console.log("Odpowiedź Pico: " + text);
+        })
+        .catch(function(error) {
+            alert("BŁĄD KOMUNIKACJI:\n" + error);
+        });
+    }
+
+    function home() {
+        if(confirm("Czy na pewno bazować maszynę?")) {
+            fetch('/api/jog?cmd=HOME'); // Specjalna komenda
+        }
+    }
+    // Ładowanie ustawień przy starcie
+    window.onload = function() {
+      statusEl.innerText = "Pobieranie ustawień...";
+      statusEl.className = "loading";
+
+      fetch('/api/config')
+        .then(response => response.json())
+        .then(data => {
+          // Automatyczne przypisanie danych do inputów o tym samym ID co klucz w JSON
+          for (const key in data) {
+            if (document.getElementById(key)) {
+              document.getElementById(key).value = data[key];
+            }
+          }
+          statusEl.innerText = "";
+        })
+        .catch(error => {
+          statusEl.innerText = "Błąd połączenia z Pico";
+          statusEl.className = "error";
+          console.error('Error:', error);
+        });
+
+        fetch('/api/config').then(r => r.json()).then(d => {
+           if(d.steps_mm) document.getElementById('steps_mm').value = d.steps_mm;
+           if(d.steps_rot) document.getElementById('steps_rot').value = d.steps_rot;
+           if(d.steps_br) document.getElementById('steps_br').value = d.steps_br;
+       });
+    };
+
+    // 2. Wysyłanie ustawień
+    document.getElementById('configForm').addEventListener('submit', function(e) {
+      e.preventDefault(); // Nie przeładowuj strony
+      
+      saveBtn.disabled = true;
+      saveBtn.innerText = "Zapisywanie...";
+
+      // Zbieranie danych z formularza
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData.entries());
+
+      // Konwersja stringów na liczby (ważne dla C++!)
+      for(let key in data) data[key] = parseFloat(data[key]);
+
+      fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(response => {
+        if (response.ok) {
+          statusEl.innerText = "Zapisano pomyślnie!";
+          statusEl.className = "success";
+          setTimeout(() => statusEl.innerText = "", 3000);
+        } else {
+          statusEl.innerText = "Błąd zapisu!";
+          statusEl.className = "error";
+        }
+      })
+      .catch(error => {
+        statusEl.innerText = "Błąd sieci!";
+        statusEl.className = "error";
+      })
+      .finally(() => {
+        saveBtn.disabled = false;
+        saveBtn.innerText = "Zapisz Ustawienia";
+      });
+    });
+  </script>
+
+</body>
+</html>
