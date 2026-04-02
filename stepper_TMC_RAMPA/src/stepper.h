@@ -87,8 +87,8 @@ private:
     bool Enable;
 
     float max_speed_chunk;
-    float actual_speed_multiplier = 0.2;
-    float accel_speed = 0.2f;
+    float actual_speed_multiplier = 0.1f;
+    float accel_speed = 0.1f;
     int max_steps;
     float steps_speed;
     int steps_direction; 

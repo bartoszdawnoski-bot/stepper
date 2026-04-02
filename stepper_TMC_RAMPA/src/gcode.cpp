@@ -265,7 +265,7 @@ void GCode::move_complete()
         {
             stepperX->e_stop();
             stepperY->e_stop();
-            stepperZ->e_stop();
+            if(stepperZ) stepperZ->e_stop();
             
             this->e_stop = true;
             Serial.println("[MAIN] E-STOP TRIGGERED!");

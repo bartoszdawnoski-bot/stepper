@@ -1,17 +1,19 @@
 ; step1_counter.pio
 .program step1_counter
-.side_set 1 opt                     ; 
+.side_set 1 opt                 ; 
 
 .wrap_target
     pull block                      ; Wait for value in TX FIFO, load into OSR
     mov x, osr                      ; Move OSR to X
 
 count:
-    jmp pin, end                    ;If pin == 1, go to end; 
-    jmp !x end                      ;If X == 0, go to end
+    irq set 5                       ; Trigger IRQ 5
+    jmp pin, end                     ;If pin == 1, go to end; else
+    jmp !x end [3] side 1           ; If X == 0, go to end; else , set side pin high (step ON)
+    wait 1 irq 4 side 0             ; Wait for IRQ 4 to clear, side pin low (step OFF)
+    irq clear 4                     ;
+    jmp x-- count                   ; Decrement X, repeat if not zero
 
-    irq wait 4 side 1               ; Trigger IRQ 4, set side pin high and freez
-    jmp x-- count side 0            ; Decrement X, repeat if not zero and side pin low
 end:
     mov isr, x                      ; Move X to ISR
     push noblock                    ; Push ISR to FIFO
@@ -21,18 +23,20 @@ end:
 
 ; step1_speed.pio
 .program step1_speed
+
+; Start: pobierz opóźnienie RAZ i trzymaj w rejestrze X
     pull block                      ; Pobierz liczbę cykli opóźnienia z FIFO
-    mov x, osr                      ; Zapisz w rejestrze X 
+    mov x, osr                      ; Zapisz w rejestrze X (to jest nasza baza czasu)
 
 .wrap_target
-    wait 1 irq 4                    ; Czekaj na sygnał od licznika kroków 
-    mov y, x                        ; Przeładuj opóźnienie z X do Y 
+    wait 1 irq 5                    ; Czekaj na sygnał od licznika kroków (IRQ 5)
+    irq clear 5                     ;
+    mov y, x                        ; Przeładuj opóźnienie z X do Y (licznik roboczy)
 
 delay_loop:
-    jmp y-- delay_loop              ; Pętla opóźniająca 
-    irq clear 4                     ; Sygnalizuj koniec opóźnienia
+    jmp y-- delay_loop              ; Pętla opóźniająca (wykonuje się Y razy)
+    irq set 4                       ; Sygnalizuj koniec opóźnienia
 .wrap
-
 
 
 ; step2_counter.pio
@@ -44,11 +48,12 @@ delay_loop:
     mov x, osr                      ; Move OSR to X
 
 count:
-    jmp pin, end                    ;If pin == 1, go to end
-    jmp !x end                      ;If X == 0, go to end;
-
-    irq wait 6 side 1               ; Wait for IRQ 6 to clear, side pin high and freez
-    jmp x-- count side 0             ; Decrement X, repeat if not zero and side pin low
+    irq set 7                       ; Trigger IRQ 7
+    jmp pin, end                     ;If pin == 1, go to end; else
+    jmp !x end [3] side 1           ; If X == 0, go to end; else, set side pin high (step ON) 
+    wait 1 irq 6 side 0               ; Wait for IRQ 6 to clear, side pin low (step OFF)
+    irq clear 6                     ;
+    jmp x-- count                   ; Decrement X, repeat if not zero
 
 end:
     mov isr, x                      ; Move X to ISR
@@ -60,15 +65,16 @@ end:
 ; step2_speed.pio
 .program step2_speed
 
-    pull block                      ; Pobierz delay
-    mov x, osr                      ; Zapisz w X
+    pull block                      ; 1. Pobierz delay
+    mov x, osr                      ; 2. Zapisz w X
 
 .wrap_target
-    wait 1 irq 6                    ; Czekaj na IRQ 7
-    mov y, x                        ; Przeładuj do Y
+    wait 1 irq 7                    ; 3. Czekaj na IRQ 7
+    irq clear 7                     ;
+    mov y, x                        ; 4. Przeładuj do Y
 
 delay_loop:
-    jmp y-- delay_loop              ; Pętla
+    jmp y-- delay_loop              ; 5. Pętla
     irq set 6                       ; 
 .wrap
 

@@ -598,7 +598,7 @@ void Stepper::PIO_ISR_Handler()
             if(!isMoving && remaining_steps > CHUNK_SIZE * 5) 
             {
                 maxSpeed = false;
-                actual_speed_multiplier = 0.2f; 
+                actual_speed_multiplier = 0.1f; 
             } 
             else 
             {
@@ -614,7 +614,13 @@ void Stepper::PIO_ISR_Handler()
         {
             steps_to_send = (remaining_steps > CHUNK_SIZE) ? CHUNK_SIZE : remaining_steps;
             pio_sm_set_clkdiv(PIO_instance, SM_speed, base_div / actual_speed_multiplier);
-            actual_speed_multiplier += 0.2f;
+
+            if(Serial) {
+                 Serial.print("[RAMPA] Bieg (Mnoznik): ");
+                 Serial.println(actual_speed_multiplier);
+            }
+
+            actual_speed_multiplier += 0.1f;
             if(actual_speed_multiplier >= 0.95f) 
             {
                 maxSpeed = true; 

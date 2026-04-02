@@ -13,27 +13,29 @@
 // ------------- //
 
 #define step1_counter_wrap_target 0
-#define step1_counter_wrap 8
+#define step1_counter_wrap 10
 #define step1_counter_pio_version 0
 
 static const uint16_t step1_counter_program_instructions[] = {
             //     .wrap_target
     0x80a0, //  0: pull   block
     0xa027, //  1: mov    x, osr
-    0x00c6, //  2: jmp    pin, 6
-    0x0026, //  3: jmp    !x, 6
-    0xd824, //  4: irq    wait 4          side 1
-    0x1042, //  5: jmp    x--, 2          side 0
-    0xa0c1, //  6: mov    isr, x
-    0x8000, //  7: push   noblock
-    0xc000, //  8: irq    nowait 0
+    0xc005, //  2: irq    nowait 5
+    0x00c8, //  3: jmp    pin, 8
+    0x1b28, //  4: jmp    !x, 8           side 1 [3]
+    0x30c4, //  5: wait   1 irq, 4        side 0
+    0xc044, //  6: irq    clear 4
+    0x0042, //  7: jmp    x--, 2
+    0xa0c1, //  8: mov    isr, x
+    0x8000, //  9: push   noblock
+    0xc000, // 10: irq    nowait 0
             //     .wrap
 };
 
 #if !PICO_NO_HARDWARE
 static const struct pio_program step1_counter_program = {
     .instructions = step1_counter_program_instructions,
-    .length = 9,
+    .length = 11,
     .origin = -1,
     .pio_version = step1_counter_pio_version,
 #if PICO_PIO_VERSION > 0
@@ -54,24 +56,25 @@ static inline pio_sm_config step1_counter_program_get_default_config(uint offset
 // ----------- //
 
 #define step1_speed_wrap_target 2
-#define step1_speed_wrap 5
+#define step1_speed_wrap 6
 #define step1_speed_pio_version 0
 
 static const uint16_t step1_speed_program_instructions[] = {
     0x80a0, //  0: pull   block
     0xa027, //  1: mov    x, osr
             //     .wrap_target
-    0x20c4, //  2: wait   1 irq, 4
-    0xa041, //  3: mov    y, x
-    0x0084, //  4: jmp    y--, 4
-    0xc044, //  5: irq    clear 4
+    0x20c5, //  2: wait   1 irq, 5
+    0xc045, //  3: irq    clear 5
+    0xa041, //  4: mov    y, x
+    0x0085, //  5: jmp    y--, 5
+    0xc004, //  6: irq    nowait 4
             //     .wrap
 };
 
 #if !PICO_NO_HARDWARE
 static const struct pio_program step1_speed_program = {
     .instructions = step1_speed_program_instructions,
-    .length = 6,
+    .length = 7,
     .origin = -1,
     .pio_version = step1_speed_pio_version,
 #if PICO_PIO_VERSION > 0
@@ -91,27 +94,29 @@ static inline pio_sm_config step1_speed_program_get_default_config(uint offset) 
 // ------------- //
 
 #define step2_counter_wrap_target 0
-#define step2_counter_wrap 8
+#define step2_counter_wrap 10
 #define step2_counter_pio_version 0
 
 static const uint16_t step2_counter_program_instructions[] = {
             //     .wrap_target
     0x80a0, //  0: pull   block
     0xa027, //  1: mov    x, osr
-    0x00c6, //  2: jmp    pin, 6
-    0x0026, //  3: jmp    !x, 6
-    0xd826, //  4: irq    wait 6          side 1
-    0x1042, //  5: jmp    x--, 2          side 0
-    0xa0c1, //  6: mov    isr, x
-    0x8000, //  7: push   noblock
-    0xc001, //  8: irq    nowait 1
+    0xc007, //  2: irq    nowait 7
+    0x00c8, //  3: jmp    pin, 8
+    0x1b28, //  4: jmp    !x, 8           side 1 [3]
+    0x30c6, //  5: wait   1 irq, 6        side 0
+    0xc046, //  6: irq    clear 6
+    0x0042, //  7: jmp    x--, 2
+    0xa0c1, //  8: mov    isr, x
+    0x8000, //  9: push   noblock
+    0xc001, // 10: irq    nowait 1
             //     .wrap
 };
 
 #if !PICO_NO_HARDWARE
 static const struct pio_program step2_counter_program = {
     .instructions = step2_counter_program_instructions,
-    .length = 9,
+    .length = 11,
     .origin = -1,
     .pio_version = step2_counter_pio_version,
 #if PICO_PIO_VERSION > 0
@@ -132,24 +137,25 @@ static inline pio_sm_config step2_counter_program_get_default_config(uint offset
 // ----------- //
 
 #define step2_speed_wrap_target 2
-#define step2_speed_wrap 5
+#define step2_speed_wrap 6
 #define step2_speed_pio_version 0
 
 static const uint16_t step2_speed_program_instructions[] = {
     0x80a0, //  0: pull   block
     0xa027, //  1: mov    x, osr
             //     .wrap_target
-    0x20c6, //  2: wait   1 irq, 6
-    0xa041, //  3: mov    y, x
-    0x0084, //  4: jmp    y--, 4
-    0xc006, //  5: irq    nowait 6
+    0x20c7, //  2: wait   1 irq, 7
+    0xc047, //  3: irq    clear 7
+    0xa041, //  4: mov    y, x
+    0x0085, //  5: jmp    y--, 5
+    0xc006, //  6: irq    nowait 6
             //     .wrap
 };
 
 #if !PICO_NO_HARDWARE
 static const struct pio_program step2_speed_program = {
     .instructions = step2_speed_program_instructions,
-    .length = 6,
+    .length = 7,
     .origin = -1,
     .pio_version = step2_speed_pio_version,
 #if PICO_PIO_VERSION > 0

@@ -86,12 +86,40 @@ void printMemoryDebug(int counter) {
 // Funkcja wywoływana automatycznie, gdy przyjdą dane z sieci
 void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t type) 
 {
- if (type == WStype_TEXT) 
+    if (type == WStype_TEXT) 
     {
         global_packet_counter++;
         if (global_packet_counter % 100 == 0) printMemoryDebug(global_packet_counter);
 
-        // Parsowanie JSON
+        if (payload[0] == 'G' || payload[0] == 'M') 
+        {
+            processedData packet;
+            
+            size_t copy_len = length;
+            if(copy_len >= MAX_GCODE_LEN) copy_len = MAX_GCODE_LEN - 1;
+            
+            while (copy_len > 0 && (payload[copy_len - 1] == '\n' || payload[copy_len - 1] == '\r')) {
+                copy_len--;
+            }
+            
+            memcpy(packet.Gcode, payload, copy_len);
+            packet.Gcode[copy_len] = '\0';  
+            
+            packet.id = 0;     
+            packet.is_last = true;
+            packet.client_num = num;
+            
+            mutex_enter_blocking(&cmd_mutex);
+            if(!is_cmd_full()) {
+                comandQueue[cmdhead] = packet;
+                cmdhead = (cmdhead + 1) % BUFFER_SIZE;
+            }
+            mutex_exit(&cmd_mutex);
+            
+            if(Serial) { Serial.print("[WIFI] Otrzymano G-CODE: "); Serial.println(packet.Gcode); }
+            return;
+        }
+
         static StaticJsonDocument<512> doc;
         DeserializationError error = deserializeJson(doc, payload, length);
 
@@ -101,28 +129,10 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
                 Serial.print(F("deserializeJson() failed: "));
                 Serial.println(error.f_str());
             }
-            
-            //Jeśli to nie JSON, sprawdź czy to surowy G-Code 
-            if (payload[0] == 'G' || payload[0] == 'M') 
-            {
-                // ... Stary kod obsługi surowego tekstu ...
-                processedData packet;
-                size_t copy_len = (length < MAX_GCODE_LEN) ? length : (MAX_GCODE_LEN - 1);
-                memcpy(packet.Gcode, payload, copy_len);
-                packet.Gcode[copy_len] = '\0';  
-                packet.id = 0;     
-                packet.is_last = true;
-                packet.client_num = num;
-                
-                if(!is_cmd_full()) {
-                    comandQueue[cmdhead] = packet;
-                    cmdhead = (cmdhead + 1) % BUFFER_SIZE;
-                }
-            }
-            return;
+            return; 
         }
 
-       if(!is_cmd_full())
+        if(!is_cmd_full())
         {
             GcodeCom packet;
             packet.from_json(doc.as<JsonObject>()); // Konwersja JSON -> struct
@@ -169,8 +179,7 @@ void setup()
     pinMode(TRANSOPT_PIN_A, OUTPUT);
     pinMode(TRANSOPT_PIN_B, OUTPUT);
     pinMode(E_STOP_PIN, INPUT);
-    attachInterrupt(digitalPinToInterrupt(E_STOP_PIN), e_stop_isr, FALLING);
-
+    attachInterrupt(digitalPinToInterrupt(E_STOP_PIN), e_stop_isr, RISING);
     // Inicjalizacja silników
     if(motorA.init() && motorB.init() && motorC.init())
     {
@@ -242,7 +251,7 @@ void loop()
         {
             Serial.println("[MAIN] E-STOP RELEASED.");
             procesor.em_stopp_f(); 
-            procesor.processLine("M84");
+            //procesor.processLine("M84");
         }
     }
 
