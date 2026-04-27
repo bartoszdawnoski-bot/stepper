@@ -297,6 +297,20 @@
             document.getElementById('bar-valZ').style.width = percent + "%";
           }
 
+          if(data.state !== undefined) {
+             const st = document.getElementById('machineState');
+             if(data.state === "E-STOP") {
+                 st.innerText = "AWARIA (E-STOP)";
+                 st.className = "status-busy";
+             } else if(data.state === "RUN") {
+                 st.innerText = "W RUCHU";
+                 st.className = "status-busy"; 
+             } else {
+                 st.innerText = "GOTOWY";
+                 st.className = "status-idle"; 
+             }
+          }
+
           if(data.clients !== undefined) {
               const isLocked = data.clients > 1; 
               document.getElementById('external-lock-warning').style.display = isLocked ? 'block' : 'none';
@@ -361,6 +375,13 @@
 
   window.onload = function() {
     initWebSocket();
+    const savedRadius = localStorage.getItem('spoolRadius');
+    
+    document.getElementById('spool-radius').addEventListener('change', function(e) {
+      localStorage.setItem('spoolRadius', e.target.value);
+    });
+
+    if(savedRadius) document.getElementById('spool-radius').value = savedRadius;
     const statusEl = document.getElementById('status');
     statusEl.innerText = "Pobieranie ustawień...";
     statusEl.style.color = "var(--text-muted)";
@@ -374,7 +395,6 @@
       })
       .catch(error => { statusEl.innerText = "Błąd połączenia z Pico"; statusEl.style.color = "var(--danger)"; });
 
-    // DODANE: Pobieranie Info o systemie
     fetch('/api/info')
       .then(response => response.json())
       .then(data => {
