@@ -218,9 +218,33 @@ void GCode::execute_parse()
 
             while (steps_sent < max_steps)
             {
-                long current_chunk = min(CHUNK_SIZE, max_steps - steps_sent);
-                steps_sent += current_chunk;
+                long active_chunk_size = (steps_in_acceleration < RAMP_STEPS || max_steps - steps_sent < RAMP_STEPS) ? 10 : CHUNK_SIZE;
+                long current_chunk = min(active_chunk_size, max_steps - steps_sent);
+                long steps_remaining = max_steps - steps_sent;
 
+                steps_in_acceleration += current_chunk;
+
+                if (steps_in_acceleration < RAMP_STEPS) 
+                {
+                    
+                    float ramp_progress = (float)steps_in_acceleration / RAMP_STEPS;
+                    current_run_multiplier = V_MIN + (0.9f * ramp_progress);
+                }
+                else if (!this->next_line_available && steps_in_acceleration < RAMP_STEPS) 
+                {
+                    float ramp_progress = (float)steps_remaining / RAMP_STEPS;
+                    current_run_multiplier = V_MIN + (0.9f * ramp_progress);
+                }
+                else 
+                {
+                    current_run_multiplier = V_MAX;
+                }
+
+                if(current_run_multiplier > V_MAX) current_run_multiplier = V_MAX;
+                if(current_run_multiplier < V_MIN) current_run_multiplier = V_MIN;
+
+                steps_sent += current_chunk;
+                
                 long target_X = (long)(diffX * ((double)steps_sent / max_steps));
                 long target_Y = (long)(diffY * ((double)steps_sent / max_steps));
                 long target_Z = (stepperZ != nullptr) ? (long)(diffZ * ((double)steps_sent / max_steps)) : 0;
@@ -233,36 +257,23 @@ void GCode::execute_parse()
                 sentY = target_Y;
                 sentZ = target_Z;
 
-                if(steps_in_acceleration < RAMP_STEPS)
+                while((stepX_chunk != 0 && stepperX->isBufferFull()) || 
+                      (stepY_chunk != 0 && stepperY->isBufferFull()) || 
+                      (stepperZ != nullptr && stepZ_chunk != 0 && stepperZ->isBufferFull()))
                 {
-                    steps_in_acceleration += current_chunk;
-
-                    current_run_multiplier = V_MIN + 0.9f * ((float)steps_in_acceleration / RAMP_STEPS);
-                    if(current_run_multiplier > V_MAX) current_run_multiplier =  V_MAX;
-                }
-                else
-                {
-                    current_run_multiplier = V_MAX;
-                }
-
-                while((stepX_chunk != 0 && stepperX->isBufferFull()) || (stepY_chunk != 0 && stepperY->isBufferFull()) || (stepperZ != nullptr && stepZ_chunk != 0 && stepperZ->isBufferFull()))
-                {
-
-                    if(this->e_stop) { 
-                        return; 
-                    }
-
+                    if(this->e_stop) return; 
                     Stepper::moveSteps();
                     delay(1);
                 }
 
+                // Wypychanie kroków z przeliczonym mnożnikiem
                 if (stepX_chunk != 0) stepperX->addMove(stepX_chunk, vX, true, current_run_multiplier);
                 if (stepY_chunk != 0) stepperY->addMove(stepY_chunk, vY, true, current_run_multiplier);
                 if (stepperZ != nullptr && stepZ_chunk != 0) stepperZ->addMove(stepZ_chunk, vZ, true, current_run_multiplier);
             
                 Stepper::moveSteps();
 
-                //Zapamiętanie pozycji
+                // Zapamiętanie pozycji
                 last_stepX = targetStepX;
                 last_stepY = targetStepY;
                 last_stepZ = targetStepZ;
@@ -276,8 +287,10 @@ void GCode::execute_parse()
 }
 
 // Funkcja publiczna do przetwarzania surowego ciągu znaków
-void GCode::processLine(const String& line)
+void GCode::processLine(const String& line, bool has_next)
 {
+    next_line_available = has_next;
+
     // Ignoruj puste linie i komentarze
     if(line.length() == 0 || line[0] == ';') return;
 

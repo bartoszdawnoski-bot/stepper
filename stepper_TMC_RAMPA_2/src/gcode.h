@@ -53,10 +53,11 @@ private:
     Stepper* stepperZ; ///< Wskaźnik na silnik napinacza (opcjonalny)
 
     float current_feedrate_mm_min = 500.0f;
+    bool next_line_available = false;
 
     //prametry rampy
-    long CHUNK_SIZE = 50; //kroki potrzbne zeby oś wiodąca odświeżyła prędkość
-    long RAMP_STEPS = 400;  //długość rampy rozbiegowej
+    long CHUNK_SIZE = 25 * 16;   //kroki potrzbne zeby oś wiodąca odświeżyła prędkość
+    long RAMP_STEPS = 200 * 16;  //długość rampy rozbiegowej
 
     float V_MIN = 0.1f; 
     float V_MAX = 1.0f;      
@@ -96,8 +97,7 @@ public:
      * @brief Przetwarza pojedynczą linię tekstu G-Code.
      * @param line Linia tekstu (np. "G1 X100 F500").
      */
-    void processLine(const String& line);
-
+    void processLine(const String& line, bool has_next = false);
     /**
      * @brief Blokuje wykonanie programu do momentu zakończenia ruchu wszystkich silników.
      * Funkcja niezbędna do synchronizacji bufora z fizycznym ruchem.

@@ -37,7 +37,7 @@
 #define R_SENSE_TMC_PRO     0.075f
 #define CURRENT_A           1000.0f //prad silnika X | 1000mA = 1A
 #define CURRENT_B           1000.0f //prad silnika Y  
-#define CURRENT_C           1000.0f // prad silnika Z 
+#define CURRENT_C           200.0f // prad silnika Z 
 
 //Piny do obsługi pozostałych elementów
 #define E_STOP_PIN          15

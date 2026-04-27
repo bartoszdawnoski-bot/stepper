@@ -32,7 +32,7 @@ R"rawliteral(
     <!DOCTYPE html>
     <html>
         <head>
-            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>WiFi Setup</title>
             <style>
                 body{font-family:sans-serif;text-align:center;margin:50px;background:#f4f4f4;}
@@ -42,10 +42,10 @@ R"rawliteral(
         </head>
         <body>
             <h2>Konfiguracja WiFi</h2>
-            <form action=\"/save\" method=\"POST\">
-            <input type=\"text\" name=\"ssid\" placeholder=\"Nazwa sieci (SSID)\" required><br>
-            <input type=\"password\" name=\"pass\" placeholder=\"Haslo (zostaw puste jesli brak)\"><br>
-            <button type=\"submit\">Zapisz i Restartuj</button>
+            <form action="save" method="POST">
+            <input type="text" name="ssid" placeholder="Nazwa sieci (SSID)" required><br>
+            <input type="password" name="pass" placeholder="Haslo (zostaw puste jesli brak)"><br>
+            <button type="submit">Zapisz i Restartuj</button>
             </form>
         </body>
     </html>
@@ -561,9 +561,9 @@ void WiFiMenager::send_stop()
     doc["ack"] = false;
     doc["state"] = "OK";
 
-    String output;
-    serializeJson(doc, output);
-    websocket.broadcastTXT(output);
+    char buffer[128];
+    size_t len = serializeJson(doc, buffer, sizeof(buffer));
+    websocket.broadcastTXT((uint8_t*)buffer, len);
 }
 
 void WiFiMenager::reconnect()

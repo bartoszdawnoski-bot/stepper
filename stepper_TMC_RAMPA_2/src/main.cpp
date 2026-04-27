@@ -17,6 +17,7 @@ int processed_count = 0;
 int global_packet_counter = 0;
 unsigned long last_wifi_ping = 0; 
 volatile bool e_stop_triggered_isr = false;
+static bool stop_sent = false; 
 
 // ________PAMIĘĆ WSPÓLNA________
 
@@ -255,7 +256,7 @@ void loop()
 
         if(strnlen(task.Gcode, MAX_GCODE_LEN) > 0)
         {
-            procesor.processLine(task.Gcode); 
+            procesor.processLine(task.Gcode, !is_cmd_empty()); 
         } 
         
         processedStatus ack;
@@ -276,7 +277,18 @@ void loop1()
 {
     if(wifi.isCon()) wifi.run(); 
     else wifi.reconnect(); 
-    if(procesor.is_em_stopped()) wifi.send_stop();
+    if(procesor.is_em_stopped()) 
+    {
+        if(!stop_sent) 
+        {
+            wifi.send_stop();
+            stop_sent = true;
+        }
+    }
+    else 
+    {
+        stop_sent = false;
+    }
 
 
     if (wifi.config_changed)
@@ -322,12 +334,6 @@ void loop1()
         acktail = (acktail + 1) % BUFFER_SIZE;
         processed_count++;
         mutex_exit(&ack_mutex);
-
-        if(millis() - last_wifi_ping > 200)
-        {
-            last_wifi_ping = millis();
-            wifi.run(); 
-        }
         
     }
 }

@@ -628,11 +628,6 @@ void Stepper::PIO_ISR_Handler()
             steps_to_send = (remaining_steps > ramp_chunk) ? ramp_chunk : remaining_steps;
             pio_sm_set_clkdiv(PIO_instance, SM_speed, base_div / actual_speed_multiplier);
 
-            if(Serial) {
-                 Serial.print("[RAMPA] Mnoznik: ");
-                 Serial.println(actual_speed_multiplier);
-            }
-
             actual_speed_multiplier += 0.1f;
             if(actual_speed_multiplier >= 0.95f) 
             {
@@ -642,7 +637,7 @@ void Stepper::PIO_ISR_Handler()
         else
         {
             steps_to_send = remaining_steps;
-            pio_sm_set_clkdiv(PIO_instance, SM_speed, base_div);
+            pio_sm_set_clkdiv(PIO_instance, SM_speed, base_div / actual_speed_multiplier);
         }
 
         remaining_steps -= steps_to_send;
