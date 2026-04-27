@@ -7,6 +7,11 @@
 #include <malloc.h>
 #include "pico/mutex.h"
 
+#define FIRMWARE_VERSION "v1.0.0"
+#define FIRMWARE_DATE __DATE__ " " __TIME__ 
+#define FIRMWARE_AUTHOR "Nawijarka CNC Project"
+#define FIRMWARE_FEATURES "TMC5160 SPI, PIO Steppers, WebSockets, G-Code Parser"
+
 // Rozmiar buforów komunikacyjnych 
 const int BUFFER_SIZE = 512;
 bool core1_separate_stack = true;
@@ -165,6 +170,13 @@ void setup()
     Serial.begin(115200);
     while(!wifi.isCon()){delay(10);} // Oczekiwanie na monitor portu szeregowego - do wyzucenia w wersji koncowej
     delay(2000); 
+
+    Serial.println("\n=============================================");
+    Serial.println("       " FIRMWARE_AUTHOR "       ");
+    Serial.print(" Wersja:     "); Serial.println(FIRMWARE_VERSION);
+    Serial.print(" Kompilacja: "); Serial.println(FIRMWARE_DATE);
+    Serial.print(" Funkcje:    "); Serial.println(FIRMWARE_FEATURES);
+    Serial.println("=============================================\n");
 
     SPI.setRX(TMC_MISO_PIN);  // MISO
     SPI.setTX(TMC_MOSI_PIN);  // MOSI
@@ -332,8 +344,11 @@ void loop1()
         doc["loadX"] = motorA.get_load(); 
         doc["loadY"] = motorB.get_load();
 
+        doc["maxValZ"] = procesor.get_current_Z();
+        doc["valZ"] = motorC.get_actuall_current();
         doc["motorsOn"] = motorA.isEnabled();
         
+        doc["clients"] = wifi.get_active_clients();
         char buffer[512];
         serializeJson(doc, buffer);
         wifi.broadcast_telemetry(buffer); 

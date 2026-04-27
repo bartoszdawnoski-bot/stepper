@@ -44,11 +44,13 @@ void GCode::execute_parse()
         {
             stepperX->setEnable(false);
             stepperY->setEnable(false);
+            stepperZ->setEnable(false);
         }
         if(num == 84)
         {
             stepperX->setEnable(true);
             stepperY->setEnable(true);
+            stepperZ->setEnable(true);
         }
     }
     // Obsługa komend G
@@ -307,4 +309,9 @@ void GCode::em_stopp()
 void GCode::em_stopp_f() 
 { 
     this->e_stop = false; 
+}
+
+float GCode::get_current_Z() 
+{
+    return this->factor.max_current_Z;
 }

@@ -321,6 +321,7 @@ void Stepper::initTMC(uint16_t cs, float r_sense, uint16_t current_ma)
 
     this->tmc_driver->toff(5);
     this->tmc_driver->rms_current(current_ma);
+    this->actuall_current = current_ma;
 
     this->tmc_driver->microsteps(16);
     this->micro_steps = 16;
@@ -854,8 +855,9 @@ void Stepper::set_current(uint16_t ma)
             )
         );
 
-        if(ma > this->max_current) return;
+        if(ma > this->max_current) ma = this->max_current;
         tmc_driver->rms_current(ma);
+        actuall_current = ma;
 
         SPI.endTransaction();
     }
@@ -900,4 +902,9 @@ void Stepper::set_global_override(float val) {
 bool Stepper::isEnabled()
 {
     return this->Enable;
+}
+
+float Stepper::get_actuall_current()
+{
+    return this->actuall_current;
 }

@@ -139,6 +139,8 @@ public:
     void broadcast_telemetry(const char* json_data);
 
     void handle_info_get();
+
+    int get_active_clients();
 };
 
 #endif

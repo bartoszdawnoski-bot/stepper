@@ -111,6 +111,8 @@ public:
     void em_stopp();
 
     void em_stopp_f() ;
+
+    float get_current_Z();
 };
 
 #endif

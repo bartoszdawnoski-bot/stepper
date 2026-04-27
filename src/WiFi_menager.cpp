@@ -387,13 +387,6 @@ bool WiFiMenager::init()
                 if(!this->handle_file_read("/index.html")) this->server.send(404, "text/plain", "Config file not found");
             }
         });
-        server.on("/", HTTP_GET, [this](){
-            if(this->active_clients > 0) this->server.send(200, "text/html", BLOCKED_CONFIG_HTML);
-            else 
-            {
-                if(!this->handle_file_read("/index.html")) this->server.send(404, "text/plain", "Config file not found");
-            }
-        });
         server.onNotFound([this]() 
         {
             if (!this->handle_file_read(this->server.uri())) 
@@ -647,3 +640,5 @@ void WiFiMenager::handle_info_get()
     serializeJson(doc, response);
     server.send(200, "application/json", response);
 }
+
+int WiFiMenager::get_active_clients() { return active_clients; }

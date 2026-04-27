@@ -70,6 +70,7 @@ private:
     uint SM_counter, SM_speed; ///< Numery maszyn stanów.
     uint offset_counter, offset_speed; ///< Adresy programów w pamięci PIO.
     uint16_t max_current = 1000;
+    uint16_t actuall_current;
 
     // Zarządzanie instancjami
     static Stepper* PIO0_Instance[LENGHT];
@@ -219,6 +220,11 @@ public:
      * @param override_val Wartość od 0.01 do np. 2.0 (1.0 = 100%, 0.8 = 80%).
      */
     static void set_global_override(float val);
+
+    /** @brief Zwraca stan zasilania silnika (true = włączony) */
+    bool isEnabled();
+
+    float get_actuall_current();
 };
 
 #endif 
