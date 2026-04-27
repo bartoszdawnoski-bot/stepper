@@ -633,7 +633,7 @@ void WiFiMenager::handle_info_get()
     StaticJsonDocument<256> doc;
     doc["version"] = "v1.0.0";
     doc["date"] = __DATE__ " " __TIME__;
-    doc["author"] = "Nawijarka CNC Project";
+    doc["author"] = "Bartosz Danowski";
     doc["features"] = "TMC5160, PIO Steppers, WebSockets";
 
     String response;
