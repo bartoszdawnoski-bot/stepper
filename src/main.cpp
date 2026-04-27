@@ -9,7 +9,7 @@
 
 #define FIRMWARE_VERSION "v1.0.0"
 #define FIRMWARE_DATE __DATE__ " " __TIME__ 
-#define FIRMWARE_AUTHOR "Nawijarka CNC Project"
+#define FIRMWARE_AUTHOR "Bartosz Danowski"
 #define FIRMWARE_FEATURES "TMC5160 SPI, PIO Steppers, WebSockets, G-Code Parser"
 
 // Rozmiar buforów komunikacyjnych 
