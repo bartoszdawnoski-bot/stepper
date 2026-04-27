@@ -158,9 +158,14 @@
       <span style="background: var(--surface); padding: 5px 12px; border-radius: 6px; font-weight: bold;">Zasilanie: <span id="motorsState" style="color: var(--text-muted);">---</span></span>
       <span>Obciążenie Y: <b id="val-loadY" style="color: var(--danger);">0</b></span>
     </div>
-    
+    <div class="tele-box" style="grid-column: span 2; margin-top: 10px; border-top: 2px solid var(--accent);">
+        <label style="color: var(--accent); margin:0;">Hamulec (Naciąg)</label>
+        <div id="val-valZ" class="big-val" style="color: var(--accent);">0</div><span class="unit">mA</span>
+        <div style="background: var(--surface); height: 10px; border-radius: 5px; margin-top: 10px; overflow: hidden;">
+          <div id="bar-valZ" style="background: var(--accent); height: 100%; width: 0%; transition: 0.3s;"></div>
+        </div>
+      </div>
     <hr>
-    
     <div style="text-align: center;">
       <label style="display: inline-block;">Promień aktualnej szpuli [mm]:</label>
       <input type="number" id="spool-radius" value="25" style="width: 80px; padding: 5px; margin-left: 10px; display: inline-block; text-align: center;">
@@ -172,6 +177,10 @@
     <h2>Sterowanie Ręczne</h2>
     <p>Status: <span id="machineState" class="status-idle">GOTOWY</span></p>
     
+    <div id="external-lock-warning" style="display: none; background: var(--danger); color: #11111b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-weight: bold;">
+      ⚠️ Zewnętrzny panel podłączony! Sterowanie ruchem z przeglądarki zablokowane.
+    </div>
+
     <div class="highlight-box">
       <label style="color: var(--text);">Globalne Nadpisanie Prędkości (Override): <span id="override-display" style="color: var(--accent); font-size: 1.2em;">100</span>%</label>
       <input type="range" id="override-slider" min="5" max="200" value="100" oninput="updateOverride(this.value)">
@@ -280,6 +289,23 @@
           if(data.rpm !== undefined) {
              rpm = data.rpm;
              document.getElementById('val-rpm').innerText = rpm.toFixed(1) + " RPM";
+          }
+
+          if(data.valZ !== undefined) {
+            document.getElementById('val-valZ').innerText = data.valZ;
+            let percent = (data.valZ / maxValZ) * 100; 
+            document.getElementById('bar-valZ').style.width = percent + "%";
+          }
+
+          if(data.clients !== undefined) {
+              const isLocked = data.clients > 1; 
+              document.getElementById('external-lock-warning').style.display = isLocked ? 'block' : 'none';
+              
+              document.querySelectorAll('.motion-ctrl').forEach(el => {
+                  el.disabled = isLocked;
+                  el.style.opacity = isLocked ? '0.3' : '1';
+                  el.style.pointerEvents = isLocked ? 'none' : 'auto';
+              });
           }
           
           const radius = parseFloat(document.getElementById('spool-radius').value) || 0;
