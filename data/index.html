@@ -52,7 +52,6 @@
       gap: 20px; 
     }
     
-    /* UI Elements */
     label { 
       display: block; 
       margin: 10px 0 5px; 
@@ -100,7 +99,6 @@
       transform: translateY(-1px); 
     }
 
-    /* Kolorowe przyciski */
     .btn-jog { background: var(--surface); }
     .btn-primary { background: var(--primary); color: #11111b; border: none; }
     .btn-success { background: var(--success); color: #11111b; border: none; margin-top: 10px; }
@@ -120,7 +118,6 @@
     #status { text-align: center; font-weight: bold; margin-top: 10px; }
     .status-idle { color: var(--success); font-weight: bold; }
     
-    /* Telemetria */
     .tele-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: center; }
     .tele-box { background: var(--input-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
     .big-val { font-size: 1.8em; font-weight: bold; color: var(--success); margin: 5px 0; }
@@ -134,6 +131,8 @@
       margin-bottom: 20px; 
       border-left: 4px solid var(--accent);
     }
+
+    @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
   </style>
 </head>
 <body>
@@ -158,6 +157,21 @@
       <span style="background: var(--surface); padding: 5px 12px; border-radius: 6px; font-weight: bold;">Zasilanie: <span id="motorsState" style="color: var(--text-muted);">---</span></span>
       <span>Obciążenie Y: <b id="val-loadY" style="color: var(--danger);">0</b></span>
     </div>
+  <hr style="border: 0.5px solid var(--border); margin: 15px 0;">
+    <div style="font-size: 0.75em; display: flex; justify-content: space-between; color: var(--text-muted); font-family: monospace;">
+      <span style="display: flex; flex-direction: column;">
+        <span>Diag X: <b id="val-statX">0x00000000</b></span>
+        <span id="text-statX" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
+      </span>
+      <span style="display: flex; flex-direction: column; text-align: right;">
+        <span>Diag Y: <b id="val-statY">0x00000000</b></span>
+        <span id="text-statY" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
+      </span>
+      <span style="display: flex; flex-direction: column; text-align: right;">
+        <span>Diag Z: <b id="val-statZ">0x00000000</b></span>
+        <span id="text-statY" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
+      </span>
+    </div>
     <div class="tele-box" style="grid-column: span 2; margin-top: 10px; border-top: 2px solid var(--accent);">
         <label style="color: var(--accent); margin:0;">Hamulec (Naciąg)</label>
         <div id="val-valZ" class="big-val" style="color: var(--accent);">0</div><span class="unit">mA</span>
@@ -175,10 +189,15 @@
 
   <div class="card">
     <h2>Sterowanie Ręczne</h2>
-    <p>Status: <span id="machineState" class="status-idle">GOTOWY</span></p>
+    <p>
+      Status: <span id="machineState" class="status-idle">GOTOWY</span>
+      <span id="temp-warning" style="display: none; background: var(--danger); color: #11111b; padding: 3px 10px; border-radius: 6px; font-weight: bold; margin-left: 15px; animation: blink 1s infinite;">
+        PRZEGRZANIE STEROWNIKA
+      </span>
+    </p>
     
     <div id="external-lock-warning" style="display: none; background: var(--danger); color: #11111b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-weight: bold;">
-      ⚠️ Zewnętrzny panel podłączony! Sterowanie ruchem z przeglądarki zablokowane.
+      Zewnętrzny panel podłączony! Sterowanie ruchem z przeglądarki zablokowane.
     </div>
 
     <div class="highlight-box">
@@ -291,10 +310,38 @@
              document.getElementById('val-rpm').innerText = rpm.toFixed(1) + " RPM";
           }
 
+          if(data.ot !== undefined) {
+              document.getElementById('temp-warning').style.display = data.ot ? 'inline-block' : 'none';
+          }
+
           if(data.valZ !== undefined) {
             document.getElementById('val-valZ').innerText = data.valZ;
             let percent = (data.valZ / maxValZ) * 100; 
             document.getElementById('bar-valZ').style.width = percent + "%";
+          }
+
+          if(data.statX !== undefined) {
+              document.getElementById('val-statX').innerText = "0x" + data.statX.toString(16).padStart(8, '0').toUpperCase();
+              let textX = decodeTmcStatus(data.statX);
+              let elX = document.getElementById('text-statX');
+              elX.innerText = textX;
+              elX.style.color = (textX === "OK") ? "var(--success)" : "var(--danger)";
+          }
+          
+          if(data.statY !== undefined) {
+              document.getElementById('val-statY').innerText = "0x" + data.statY.toString(16).padStart(8, '0').toUpperCase();
+              let textY = decodeTmcStatus(data.statY);
+              let elY = document.getElementById('text-statY');
+              elY.innerText = textY;
+              elY.style.color = (textY === "OK") ? "var(--success)" : "var(--danger)";
+          }
+
+          if(data.statZ !== undefined) {
+              document.getElementById('val-statZ').innerText = "0x" + data.statZ.toString(16).padStart(8, '0').toUpperCase();
+              let textZ = decodeTmcStatus(data.statZ);
+              let elZ = document.getElementById('text-statZ');
+              elZ.innerText = textZ;
+              elZ.style.color = (textZ === "OK") ? "var(--success)" : "var(--danger)";
           }
 
           if(data.state !== undefined) {
@@ -326,22 +373,43 @@
           const wireMs = (rpm / 60) * (2 * Math.PI * radius / 1000);
           document.getElementById('val-wire-ms').innerText = "Prędkość drutu: " + wireMs.toFixed(4) + " m/s";
           
-          if(data.loadX !== undefined) document.getElementById('val-loadX').innerText = data.loadX;
-          if(data.loadY !== undefined) document.getElementById('val-loadY').innerText = data.loadY;
+          if(data.loadX !== undefined) {
+              let pctX = ((1023 - Math.max(0, Math.min(1023, data.loadX))) / 1023) * 100;
+              document.getElementById('val-loadX').innerText = pctX.toFixed(0) + "%";
+          }
+          if(data.loadY !== undefined) {
+              let pctY = ((1023 - Math.max(0, Math.min(1023, data.loadY))) / 1023) * 100;
+              document.getElementById('val-loadY').innerText = pctY.toFixed(0) + "%";
+          }
           
           if(data.motorsOn !== undefined) {
           const ms = document.getElementById('motorsState');
-          if(data.motorsOn) {
-            ms.innerText = "ON (TRZYMA)";
-            ms.style.color = "var(--success)"; 
-          } else {
-            ms.innerText = "OFF (LUZ)";
-            ms.style.color = "var(--danger)"; 
+            if(data.motorsOn) {
+              ms.innerText = "ON (TRZYMA)";
+              ms.style.color = "var(--success)"; 
+            } else {
+              ms.innerText = "OFF (LUZ)";
+              ms.style.color = "var(--danger)"; 
+            }
           }
-        }
         }
       } catch(e) {}
     };
+  }
+
+  function decodeTmcStatus(statusVal) {
+      let errors = [];
+      
+      if (statusVal & (1 << 30)) errors.push("PRZEGRZANIE (OT)!");
+      else if (statusVal & (1 << 29)) errors.push("Ostrz. Temp. (OTPW)");
+      
+      if (statusVal & (1 << 28)) errors.push("Zwarcie do masy cewka A (S2GA)");
+      if (statusVal & (1 << 27)) errors.push("Zwarcie do masy cewka B (S2GB)");
+      
+      if (statusVal & (1 << 26)) errors.push("Przerwa w obwodzie A (Brak silnika)");
+      if (statusVal & (1 << 25)) errors.push("Przerwa w obwodzie B (Brak silnika)");
+
+      return errors.length > 0 ? errors.join(" | ") : "OK";
   }
 
   function updateOverride(val) {

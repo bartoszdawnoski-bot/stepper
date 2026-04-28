@@ -364,6 +364,12 @@ void loop1()
         
         doc["clients"] = wifi.get_active_clients();
 
+        doc["ot"] = motorA.is_overheated() || motorB.is_overheated() || motorC.is_overheated();
+
+        doc["statX"] = motorA.get_status();
+        doc["statY"] = motorB.get_status();
+        doc["statZ"] = motorC.get_status();
+
         if (procesor.is_em_stopped()) doc["state"] = "E-STOP";
         else if (motorA.moving() || motorB.moving()) doc["state"] = "RUN";
         else doc["state"] = "IDLE";
