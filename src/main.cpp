@@ -9,7 +9,7 @@
 
 #define FIRMWARE_VERSION "v1.0.0"
 #define FIRMWARE_DATE __DATE__ " " __TIME__ 
-#define FIRMWARE_AUTHOR "Bartosz Danowski"
+#define FIRMWARE_AUTHOR "Nawijarka CNC Project"
 #define FIRMWARE_FEATURES "TMC5160 SPI, PIO Steppers, WebSockets, G-Code Parser"
 
 // Rozmiar buforów komunikacyjnych 
@@ -93,6 +93,20 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
     {
         global_packet_counter++;
         if (global_packet_counter % 100 == 0) printMemoryDebug(global_packet_counter);
+
+
+        String msg = String((char*)payload);
+        if (msg.startsWith("OVERRIDE:")) 
+        {
+            float val = msg.substring(9).toFloat() / 100.0f; 
+            Stepper::set_global_override(val);
+            
+            if(Serial) { 
+                Serial.print("[WIFI] Zmieniono Override na: "); 
+                Serial.println(val); 
+            }
+            return; 
+        }
 
         if (payload[0] == 'G' || payload[0] == 'M') 
         {
@@ -349,6 +363,11 @@ void loop1()
         doc["motorsOn"] = motorA.isEnabled();
         
         doc["clients"] = wifi.get_active_clients();
+
+        if (procesor.is_em_stopped()) doc["state"] = "E-STOP";
+        else if (motorA.moving() || motorB.moving()) doc["state"] = "RUN";
+        else doc["state"] = "IDLE";
+        
         char buffer[512];
         serializeJson(doc, buffer);
         wifi.broadcast_telemetry(buffer); 

@@ -209,7 +209,7 @@ void GCode::execute_parse()
                     float ramp_progress = (float)steps_in_acceleration / RAMP_STEPS;
                     current_run_multiplier = V_MIN + (0.9f * ramp_progress);
                 }
-                else if (!this->next_line_available && steps_in_acceleration < RAMP_STEPS) 
+                else if (!this->next_line_available && steps_remaining < RAMP_STEPS) 
                 {
                     float ramp_progress = (float)steps_remaining / RAMP_STEPS;
                     current_run_multiplier = V_MIN + (0.9f * ramp_progress);

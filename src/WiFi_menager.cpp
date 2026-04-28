@@ -1,32 +1,5 @@
 #include "Wifi_menger.h"
 
-const char* BLOCKED_CONFIG_HTML = 
-    R"rawliteral(
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>Dostęp zabroniony</title>
-                <style>
-                    body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #ffe6e6; color: #cc0000; }
-                    .container { max-width: 600px; margin: 50px auto; border: 2px solid #cc0000; padding: 20px; border-radius: 10px; background: white; }
-                    h1 { font-size: 24px; }
-                    a { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #333; color: white; text-decoration: none; border-radius: 5px; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>Konfiguracja zablokowana</h1>
-                    <p>Maszyna jest obecnie połączona z panelem sterowania (WebSocket).</p>
-                    <p>Ze względów bezpieczeństwa zmiana ustawień jest niemożliwa podczas pracy.</p>
-                    <p>Rozłącz panel sterowania, aby odblokować konfigurację.</p>
-                </div>
-            </body>
-        </html>
-    )rawliteral"
-;
-
 const char* AP_CONFIG_HTML = 
 R"rawliteral( 
     <!DOCTYPE html>
@@ -380,12 +353,12 @@ bool WiFiMenager::init()
         server.on("/api/config", HTTP_GET, [this](){ this->handle_config_get(); });
         server.on("/api/config", HTTP_POST, [this](){ this->handle_config_post(); });
         server.on("/api/jog", HTTP_GET, [this](){ this->handle_jog(); });
+        
         server.on("/index.html", HTTP_GET, [this](){
-            if(this->active_clients > 0) this->server.send(200, "text/html", BLOCKED_CONFIG_HTML);
-            else 
-            {
-                if(!this->handle_file_read("/index.html")) this->server.send(404, "text/plain", "Config file not found");
-            }
+            if(!this->handle_file_read("/index.html")) this->server.send(404, "text/plain", "Config file not found");
+        });
+        server.on("/", HTTP_GET, [this](){
+            if(!this->handle_file_read("/index.html")) this->server.send(404, "text/plain", "Config file not found");
         });
         server.onNotFound([this]() 
         {
@@ -530,7 +503,7 @@ void WiFiMenager::handle_jog()
     String speed = server.arg("speed"); 
     if(speed == "") speed = "500"; 
 
-    String gcode = "G1 " + axis + dist + " F" + speed;
+    String gcode = "G91\nG1 " + axis + dist + " F" + speed + "\nG90";
 
     if(message_callback != nullptr) 
     {
@@ -633,7 +606,7 @@ void WiFiMenager::handle_info_get()
     StaticJsonDocument<256> doc;
     doc["version"] = "v1.0.0";
     doc["date"] = __DATE__ " " __TIME__;
-    doc["author"] = "Bartosz Danowski";
+    doc["author"] = "Nawijarka CNC Project";
     doc["features"] = "TMC5160, PIO Steppers, WebSockets";
 
     String response;
