@@ -254,6 +254,7 @@ void setup1()
     // Rejestracja funkcji callback do obsługi przychodzących danych
     wifi.set_callback(on_data_received);
     Serial.println("[Core 1] WIFI ready");
+    wifi.set_info(FIRMWARE_VERSION, FIRMWARE_DATE, FIRMWARE_FEATURES);
 }
 
 void loop() 

@@ -29,6 +29,7 @@ private:
 
     String ssid; 
     String password; 
+    String version, date, features;
 
     int port_webSocket = 8080; // porty standardowe
     int port_http = 80;
@@ -141,6 +142,8 @@ public:
     void handle_info_get();
 
     int get_active_clients();
+
+    void set_info(String version, String date, String features);
 };
 
 #endif

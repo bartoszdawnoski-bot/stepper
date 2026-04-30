@@ -684,14 +684,20 @@ void WiFiMenager::broadcast_telemetry(const char* json_data)
 void WiFiMenager::handle_info_get()
 {
     StaticJsonDocument<256> doc;
-    doc["version"] = "v1.1.0";
-    doc["date"] = __DATE__ " " __TIME__;
-    doc["author"] = "Nawijarka CNC Project";
-    doc["features"] = "TMC5160, PIO Steppers, WebSockets";
+    doc["version"] = version;
+    doc["date"] = date;
+    doc["features"] = features;
 
     String response;
     serializeJson(doc, response);
     server.send(200, "application/json", response);
+}
+
+void WiFiMenager::set_info(String version, String date, String features)
+{
+    this->version = version;
+    this->date = date;
+    this->features = features;
 }
 
 int WiFiMenager::get_active_clients() { return active_clients; }
