@@ -24,6 +24,7 @@ unsigned long last_wifi_ping = 0;
 unsigned long last_telemetry = 0;
 float last_posX = 0;
 volatile bool e_stop_triggered_isr = false;
+static bool estop_handled = false;
 static bool stop_sent = false; 
 
 // ________PAMIĘĆ WSPÓLNA________
@@ -65,6 +66,9 @@ mutex_t ack_mutex;
 
 void e_stop_isr()
 {
+    delayMicroseconds(500);
+
+    if(digitalRead(E_STOP_PIN) == LOW) return;
     digitalWrite(ENABLE_PIN_1, HIGH);
     digitalWrite(ENABLE_PIN_2, HIGH);
     digitalWrite(ENABLE_PIN_3, HIGH);
@@ -202,7 +206,7 @@ void setup()
     digitalWrite(TMC_CS_PIN_IGNORE, HIGH);
     pinMode(TRANSOPT_PIN_A, OUTPUT);
     pinMode(TRANSOPT_PIN_B, OUTPUT);
-    pinMode(E_STOP_PIN, INPUT);
+    pinMode(E_STOP_PIN, INPUT_PULLDOWN);
     attachInterrupt(digitalPinToInterrupt(E_STOP_PIN), e_stop_isr, RISING);
     // Inicjalizacja silników
     if(motorA.init() && motorB.init() && motorC.init())
@@ -256,7 +260,6 @@ void setup1()
 
 void loop() 
 {   
-    static bool estop_handled = false;
     if (e_stop_triggered_isr && !estop_handled)
     {
         motorA.e_stop();

@@ -503,7 +503,7 @@ void WiFiMenager::handle_jog()
     String speed = server.arg("speed"); 
     if(speed == "") speed = "500"; 
 
-    String gcode = "G91\nG1 " + axis + dist + " F" + speed + "\nG90";
+    String gcode = "G1 " + axis + dist + " F" + speed;
 
     if(message_callback != nullptr) 
     {

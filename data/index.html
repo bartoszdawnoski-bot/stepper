@@ -117,6 +117,8 @@
 
     #status { text-align: center; font-weight: bold; margin-top: 10px; }
     .status-idle { color: var(--success); font-weight: bold; }
+    .status-busy { color: var(--danger); font-weight: bold; animation: blink 1s infinite; }
+    .status-run { color: var(--accent); font-weight: bold; }
     
     .tele-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: center; }
     .tele-box { background: var(--input-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
@@ -153,26 +155,26 @@
       </div>
     </div>
     <div style="margin-top: 15px; font-size: 0.85em; display: flex; justify-content: space-between; align-items: center;">
-      <span>Obciążenie X: <b id="val-loadX" style="color: var(--danger);">0</b></span>
+      <span>Obciążenie X: <b id="val-loadX" style="color: var(--danger);">0%</b></span>
       <span style="background: var(--surface); padding: 5px 12px; border-radius: 6px; font-weight: bold;">Zasilanie: <span id="motorsState" style="color: var(--text-muted);">---</span></span>
-      <span>Obciążenie Y: <b id="val-loadY" style="color: var(--danger);">0</b></span>
+      <span>Obciążenie Y: <b id="val-loadY" style="color: var(--danger);">0%</b></span>
     </div>
   <hr style="border: 0.5px solid var(--border); margin: 15px 0;">
-    <div style="font-size: 0.75em; display: flex; justify-content: space-between; color: var(--text-muted); font-family: monospace;">
-      <span style="display: flex; flex-direction: column;">
+    <div style="font-size: 0.70em; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; color: var(--text-muted); font-family: monospace; text-align: center;">
+      <div style="display: flex; flex-direction: column; align-items: center;">
         <span>Diag X: <b id="val-statX">0x00000000</b></span>
         <span id="text-statX" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
-      </span>
-      <span style="display: flex; flex-direction: column; text-align: right;">
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border);">
         <span>Diag Y: <b id="val-statY">0x00000000</b></span>
         <span id="text-statY" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
-      </span>
-      <span style="display: flex; flex-direction: column; text-align: right;">
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center;">
         <span>Diag Z: <b id="val-statZ">0x00000000</b></span>
-        <span id="text-statY" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
-      </span>
+        <span id="text-statZ" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
+      </div>
     </div>
-    <div class="tele-box" style="grid-column: span 2; margin-top: 10px; border-top: 2px solid var(--accent);">
+    <div class="tele-box" style="grid-column: span 2; margin-top: 15px; border-top: 2px solid var(--accent);">
         <label style="color: var(--accent); margin:0;">Hamulec (Naciąg)</label>
         <div id="val-valZ" class="big-val" style="color: var(--accent);">0</div><span class="unit">mA</span>
         <div style="background: var(--surface); height: 10px; border-radius: 5px; margin-top: 10px; overflow: hidden;">
@@ -202,30 +204,30 @@
 
     <div class="highlight-box">
       <label style="color: var(--text);">Globalne Nadpisanie Prędkości (Override): <span id="override-display" style="color: var(--accent); font-size: 1.2em;">100</span>%</label>
-      <input type="range" id="override-slider" min="5" max="200" value="100" oninput="updateOverride(this.value)">
+      <input type="range" class="motion-ctrl" id="override-slider" min="5" max="200" value="100" oninput="updateOverride(this.value)">
       <div style="font-size: 0.75em; color: var(--text-muted); margin-top: 5px;">Przesuń, aby natychmiast zwolnić lub przyspieszyć całą maszynę.</div>
     </div>
 
-    <label>Prędkość (Feedrate): <span id="fr-val" style="color: var(--text);">100</span> mm/min</label>
-    <input type="range" id="feedrate" min="10" max="200" step="10" value="100" oninput="document.getElementById('fr-val').innerText=this.value">
+    <label>Prędkość (Feedrate): <span id="fr-val" style="color: var(--text);">500</span> mm/min</label>
+    <input type="range" class="motion-ctrl" id="feedrate" min="50" max="5000" step="10" value="500" oninput="document.getElementById('fr-val').innerText=this.value">
     
     <label>Ruch Wózka (X):</label>
     <div class="jog-grid">
-      <button class="btn-jog" onclick="jog('X', -10)">-10</button>
-      <button class="btn-jog" onclick="jog('X', -1)">-1</button>
-      <button class="btn-jog" onclick="jog('X', 1)">+1</button>
-      <button class="btn-jog" onclick="jog('X', 10)">+10</button>
+      <button class="btn-jog motion-ctrl" onclick="jog('X', -10)">-10</button>
+      <button class="btn-jog motion-ctrl" onclick="jog('X', -1)">-1</button>
+      <button class="btn-jog motion-ctrl" onclick="jog('X', 1)">+1</button>
+      <button class="btn-jog motion-ctrl" onclick="jog('X', 10)">+10</button>
     </div>
     
     <label>Ruch Wrzeciona (Y):</label>
     <div class="jog-grid" style="margin-bottom: 15px;">
-      <button class="btn-jog" onclick="jog('Y', -90)">-90°</button>
-      <button class="btn-jog" onclick="jog('Y', 45)">+45°</button>
-      <button class="btn-jog" onclick="jog('Y', 90)">+90°</button>
-      <button class="btn-jog" onclick="jog('Y', 180)">+180°</button>
+      <button class="btn-jog motion-ctrl" onclick="jog('Y', -90)">-90°</button>
+      <button class="btn-jog motion-ctrl" onclick="jog('Y', 45)">+45°</button>
+      <button class="btn-jog motion-ctrl" onclick="jog('Y', 90)">+90°</button>
+      <button class="btn-jog motion-ctrl" onclick="jog('Y', 180)">+180°</button>
     </div>
     
-    <button class="btn-primary" onclick="home()">BAZOWANIE MASZYNY</button>
+    <button class="btn-primary motion-ctrl" onclick="home()">BAZOWANIE MASZYNY</button>
   </div>
 </div>
 
@@ -233,14 +235,14 @@
   <div class="card">
     <h2>Terminal G-Code</h2>
     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
-      <input type="text" id="gcodeInput" placeholder="np. G1 X50 F500" style="margin-bottom: 0;">
-      <button class="btn-primary" onclick="sendCustomGcode()" style="width: auto; white-space: nowrap;">Wyślij</button>
+      <input type="text" id="gcodeInput" class="motion-ctrl" placeholder="np. G1 X50 F500" style="margin-bottom: 0;">
+      <button class="btn-primary motion-ctrl" onclick="sendCustomGcode()" style="width: auto; white-space: nowrap;">Wyślij</button>
     </div>
     <div class="jog-grid">
-      <button class="btn-danger" onclick="sendRaw('M18')" style="grid-column: span 2;">Silniki OFF</button>
-      <button class="btn-success" onclick="sendRaw('M84')" style="grid-column: span 2; margin-top: 0;">Silniki ON</button>
+      <button class="btn-danger motion-ctrl" onclick="sendRaw('M18')" style="grid-column: span 2;">Silniki OFF</button>
+      <button class="btn-success motion-ctrl" onclick="sendRaw('M84')" style="grid-column: span 2; margin-top: 0;">Silniki ON</button>
     </div>
-    <button onclick="sendRaw('G30')" style="margin-top: 10px;">Powrót do Zera (G30)</button>
+    <button class="motion-ctrl" onclick="sendRaw('G30')" style="margin-top: 10px;">Powrót do Zera (G30)</button>
     <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 15px; line-height: 1.5;">
       Dozwolone komendy: <code style="color: var(--primary);">G28</code> (Bazowanie), <code style="color: var(--primary);">G1 X.. Y.. Z..</code> (Ruch), <code style="color: var(--primary);">M18/M84</code> (Zasilanie silników).
     </p>
@@ -314,9 +316,15 @@
               document.getElementById('temp-warning').style.display = data.ot ? 'inline-block' : 'none';
           }
 
+          // UWAGA: Potrzebujemy maxValZ, aby poprawnie wyliczyć pasek hamulca
+          let currentMaxZ = 1000; // Wartość domyślna
+          if(data.maxValZ !== undefined) {
+              currentMaxZ = data.maxValZ;
+          }
+
           if(data.valZ !== undefined) {
             document.getElementById('val-valZ').innerText = data.valZ;
-            let percent = (data.valZ / maxValZ) * 100; 
+            let percent = (data.valZ / currentMaxZ) * 100; 
             document.getElementById('bar-valZ').style.width = percent + "%";
           }
 
@@ -351,7 +359,7 @@
                  st.className = "status-busy";
              } else if(data.state === "RUN") {
                  st.innerText = "W RUCHU";
-                 st.className = "status-busy"; 
+                 st.className = "status-run"; 
              } else {
                  st.innerText = "GOTOWY";
                  st.className = "status-idle"; 
@@ -400,14 +408,17 @@
   function decodeTmcStatus(statusVal) {
       let errors = [];
       
+      // Jeżeli wartość to równe 0 lub 0xFFFFFFFF, oznacza to brak komunikacji SPI (odłączony zasilacz / sterownik).
+      if (statusVal === 0 || statusVal === 4294967295) return "BŁĄD SPI / BRAK ZASILANIA";
+
       if (statusVal & (1 << 30)) errors.push("PRZEGRZANIE (OT)!");
       else if (statusVal & (1 << 29)) errors.push("Ostrz. Temp. (OTPW)");
       
-      if (statusVal & (1 << 28)) errors.push("Zwarcie do masy cewka A (S2GA)");
-      if (statusVal & (1 << 27)) errors.push("Zwarcie do masy cewka B (S2GB)");
+      if (statusVal & (1 << 28)) errors.push("Zwarcie do masy A (S2GA)");
+      if (statusVal & (1 << 27)) errors.push("Zwarcie do masy B (S2GB)");
       
-      if (statusVal & (1 << 26)) errors.push("Przerwa w obwodzie A (Brak silnika)");
-      if (statusVal & (1 << 25)) errors.push("Przerwa w obwodzie B (Brak silnika)");
+      if (statusVal & (1 << 26)) errors.push("Brak silnika A (OLA)");
+      if (statusVal & (1 << 25)) errors.push("Brak silnika B (OLB)");
 
       return errors.length > 0 ? errors.join(" | ") : "OK";
   }
