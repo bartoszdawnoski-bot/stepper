@@ -217,7 +217,7 @@ void WiFiMenager::ap_wizard()
         server.send(200, "text/html", AP_CONFIG_HTML);
     });
 
-    server.on("/save", HTTP_POST, [this]() {
+    server.on("/api/wifi", HTTP_POST, [this]() {
         String new_ssid = server.arg("ssid");
         String new_pass = server.arg("pass");
 

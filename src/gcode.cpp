@@ -96,7 +96,6 @@ void GCode::execute_parse()
             move_complete();
             if(Serial) Serial.println("[GCODE] Returning to software home (0,0,0)...");
 
-            // Ustawiamy pełną prędkość
             stepperX->setSpeed(factor.v_max_x * 0.5);
             stepperY->setSpeed(factor.v_max_y * 0.5);
             stepperX->zero();        
@@ -165,7 +164,7 @@ void GCode::execute_parse()
                 return; 
             }
 
-            float vX = 0, vY = 0;
+           float vX = 0, vY = 0;
             if (total_dist > 0.00001f)
             {
                 float speed_unit_sec = current_feedrate_mm_min / 60.0f;
@@ -177,9 +176,12 @@ void GCode::execute_parse()
                 vX = speed_unit_sec * (fabs(delta_mm_x) / total_dist) * factor.steps_perMM_x * micro_x;
                 vY = speed_unit_sec * (fabs(delta_unit_y) / total_dist) * factor.steps_per_rotation_c * micro_y;
 
-                // Limity prędkości
-                if(vX > factor.v_max_x) { float r = factor.v_max_x/vX; vX*=r; vY*=r; }
-                if(vY > factor.v_max_y) { float r = factor.v_max_y/vY; vX*=r; vY*=r; }
+                float max_step_rate_x = factor.v_max_x * factor.steps_perMM_x * micro_x;
+                float max_step_rate_y = factor.v_max_y * factor.steps_per_rotation_c * micro_y;
+
+                // Limity prędkości 
+                if(vX > max_step_rate_x) { float r = max_step_rate_x / vX; vX *= r; vY *= r; }
+                if(vY > max_step_rate_y) { float r = max_step_rate_y / vY; vX *= r; vY *= r; }
             }
 
             long max_steps = max(abs(diffX), abs(diffY));
