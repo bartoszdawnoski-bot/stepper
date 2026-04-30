@@ -315,3 +315,13 @@ float GCode::get_current_Z()
 {
     return this->factor.max_current_Z;
 }
+
+float GCode::get_steps_perMM_x()
+{
+    return factor.steps_perMM_x;
+}
+
+float GCode::get_steps_per_rotation_c()
+{
+    return factor.steps_per_rotation_c;
+}

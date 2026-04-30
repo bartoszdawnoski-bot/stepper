@@ -368,6 +368,79 @@ bool WiFiMenager::init()
             }
         });
         server.on("/api/info", HTTP_GET, [this](){ this->handle_info_get(); });
+        // Obsługa restartu Pico
+        server.on("/api/reboot", HTTP_POST, [this]() {
+            server.send(200, "text/plain", "Rebooting");
+            delay(500);
+            rp2040.reboot();
+        });
+
+        server.on("/api/macro", HTTP_POST, [this]() {
+            if (!server.hasArg("plain")) {
+                server.send(400, "text/plain", "Brak danych");
+                return;
+            }
+            
+            StaticJsonDocument<512> new_macros;
+            deserializeJson(new_macros, server.arg("plain"));
+            
+            // Pobieramy stary konfig maszyny
+            StaticJsonDocument<1024> full_config;
+            if (LittleFS.exists("/config.json")) {
+                File file = LittleFS.open("/config.json", "r");
+                deserializeJson(full_config, file);
+                file.close();
+            }
+
+            // Dopisujemy dane makr
+            full_config["m1_name"] = new_macros["m1_name"];
+            full_config["m1_cmd"] = new_macros["m1_cmd"];
+            full_config["m2_name"] = new_macros["m2_name"];
+            full_config["m2_cmd"] = new_macros["m2_cmd"];
+            full_config["m3_name"] = new_macros["m3_name"];
+            full_config["m3_cmd"] = new_macros["m3_cmd"];
+
+            // Zapisujemy nadpisany JSON
+            File file = LittleFS.open("/config.json", "w");
+            if (serializeJson(full_config, file) == 0) {
+                server.send(500, "text/plain", "Blad zapisu pliku config.json");
+            } else {
+                server.send(200, "text/plain", "Makra Zapisane");
+                if(Serial) Serial.println("[Config] Makra zaktualizowane w pamieci FLASH");
+            }
+            file.close();
+        });
+
+        // Obsługa zmiany WiFi ze strony
+        server.on("/api/wifi", HTTP_POST, [this]() {
+            if (!server.hasArg("plain")) {
+                server.send(400, "text/plain", "Brak danych");
+                return;
+            }
+            
+            StaticJsonDocument<512> new_wifi;
+            deserializeJson(new_wifi, server.arg("plain"));
+            
+            StaticJsonDocument<1024> full_config;
+            if (LittleFS.exists("/config.json")) {
+                File file = LittleFS.open("/config.json", "r");
+                deserializeJson(full_config, file);
+                file.close();
+            }
+
+            // Podmieniamy tylko dane WiFi
+            full_config["ssid"] = new_wifi["ssid"];
+            full_config["pass"] = new_wifi["pass"];
+
+            // Zapisujemy i robimy twardy restart
+            File file = LittleFS.open("/config.json", "w");
+            serializeJson(full_config, file);
+            file.close();
+
+            server.send(200, "text/plain", "Zapisano. Restart...");
+            delay(1000);
+            rp2040.reboot();
+        });
 
         server.begin();
         websocket.begin();
@@ -394,7 +467,13 @@ void WiFiMenager::run()
 {
     server.handleClient();
     websocket.loop();
-    MDNS.update();
+
+    static unsigned long last_mdns_update = 0;
+    if (millis() - last_mdns_update > 1000) 
+    {
+        MDNS.update();
+        last_mdns_update = millis();
+    }
 }
 
 bool WiFiMenager::load_config(float &sx, float &sy, float &maxz, float &st_mm, float &st_rot) {
@@ -587,6 +666,7 @@ void WiFiMenager::reconnect()
 bool WiFiMenager::send_json(uint8_t client_num, MachineStatus &data)
 {
     static StaticJsonDocument<256> doc;
+    doc.clear();
     JsonObject obj = doc.to<JsonObject>();
     data.to_json(obj);
 
@@ -604,7 +684,7 @@ void WiFiMenager::broadcast_telemetry(const char* json_data)
 void WiFiMenager::handle_info_get()
 {
     StaticJsonDocument<256> doc;
-    doc["version"] = "v1.0.0";
+    doc["version"] = "v1.1.0";
     doc["date"] = __DATE__ " " __TIME__;
     doc["author"] = "Nawijarka CNC Project";
     doc["features"] = "TMC5160, PIO Steppers, WebSockets";

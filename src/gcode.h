@@ -113,6 +113,10 @@ public:
     void em_stopp_f() ;
 
     float get_current_Z();
+
+    float get_steps_perMM_x();
+
+    float get_steps_per_rotation_c();
 };
 
 #endif

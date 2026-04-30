@@ -14,6 +14,8 @@ uint Stepper::pio1_start_mask = 0;
 uint Stepper::pio2_start_mask = 0;
 
 float Stepper::global_override = 1.0f;
+mutex_t Stepper::spi_mutex;
+bool Stepper::spi_mutex_initialized = false;
 
 Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold, Program set)
 :PIO_instance(pio_instance),
@@ -309,6 +311,10 @@ void Stepper::initTMC(uint16_t cs, float r_sense, uint16_t current_ma)
     this->CS_PIN = cs; 
     this->tmc_driver = new TMC5160Stepper(this->CS_PIN, r_sense);
    
+    if (!spi_mutex_initialized) {
+        mutex_init(&spi_mutex);
+        spi_mutex_initialized = true;
+    }
    
     this->tmc_driver->begin();
     SPI.beginTransaction(
@@ -788,22 +794,29 @@ int Stepper::getPosition()
 
 uint16_t Stepper::get_load()
 {
-    if(!use_tmc) return 0;
-    // sg_result zwraca wartość obciążenia.
-    return this->tmc_driver->sg_result();
+    if(!use_tmc || !spi_mutex_initialized) return 0;
+    mutex_enter_blocking(&spi_mutex);
+    uint16_t res = this->tmc_driver->sg_result();
+    mutex_exit(&spi_mutex);
+    return res;
 }
 
 uint32_t Stepper::get_status()
 {
-    if(!use_tmc) return 0;
-    return this->tmc_driver->DRV_STATUS();
+    if(!use_tmc || !spi_mutex_initialized) return 0;
+    mutex_enter_blocking(&spi_mutex);
+    uint32_t res = this->tmc_driver->DRV_STATUS();
+    mutex_exit(&spi_mutex);
+    return res;
 }
 
 bool Stepper::is_overheated()
 {
-    if(!use_tmc) return false;
-    // Sprawdza flagę 'ot' w rejestrze statusu
-    return this->tmc_driver->ot();
+    if(!use_tmc || !spi_mutex_initialized) return false;
+    mutex_enter_blocking(&spi_mutex);
+    bool res = this->tmc_driver->ot();
+    mutex_exit(&spi_mutex);
+    return res;
 }
 
 bool Stepper::get_tmc()
@@ -845,21 +858,14 @@ bool Stepper::isBufferEmpty()
 
 void Stepper::set_current(uint16_t ma)
 {
-    if(this->use_tmc && tmc_driver != nullptr)
-    {
-        SPI.beginTransaction(
-            SPISettings(
-                4000000,
-                MSBFIRST,
-                SPI_MODE3
-            )
-        );
-
+    if(this->use_tmc && tmc_driver != nullptr && spi_mutex_initialized) {
+        mutex_enter_blocking(&spi_mutex);
+        SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3));
         if(ma > this->max_current) ma = this->max_current;
         tmc_driver->rms_current(ma);
         actuall_current = ma;
-
         SPI.endTransaction();
+        mutex_exit(&spi_mutex);
     }
 }
 

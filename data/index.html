@@ -3,117 +3,96 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panel Sterowania Nawijarką</title>
+  <title>Panel Sterowania Nawijarką CNC</title>
   <style>
     :root {
-      --bg: #11111b;          /* Tło strony */
-      --card: #1e1e2e;        /* Tło kart */
-      --text: #cdd6f4;        /* Główny tekst */
-      --text-muted: #bac2de;  /* Tekst poboczny / etykiety */
-      --border: #313244;      /* Linie i obramowania */
-      --input-bg: #313244;    /* Tło pól tekstowych */
-      --primary: #89b4fa;     /* Niebieski (główny) */
+      --bg: #11111b;          
+      --card: #1e1e2e;        
+      --text: #cdd6f4;        
+      --text-muted: #bac2de;  
+      --border: #313244;      
+      --input-bg: #313244;    
+      --primary: #89b4fa;     
       --primary-hover: #b4befe;
-      --success: #a6e3a1;     /* Zielony */
-      --danger: #f38ba8;      /* Czerwony */
-      --accent: #fab387;      /* Pomarańczowy (suwaki) */
-      --surface: #45475a;     /* Pudełka wewnątrz kart */
+      --success: #a6e3a1;     
+      --danger: #f38ba8;      
+      --accent: #fab387;      
+      --surface: #45475a;     
     }
 
     body { 
       font-family: 'Segoe UI', system-ui, sans-serif; 
       background: var(--bg); 
       color: var(--text); 
-      padding: 20px; 
-      max-width: 900px; 
-      margin: 0 auto; 
-      display: grid; 
-      gap: 20px; 
-    }
-    
-    h2 { 
-      margin-top: 0; 
-      font-size: 1.2em; 
-      color: var(--primary); 
-      border-bottom: 1px solid var(--border); 
-      padding-bottom: 10px; 
+      padding: 0; 
+      margin: 0; 
     }
 
+    /* Pasek Nawigacji */
+    .navbar {
+      background: var(--card);
+      padding: 10px 20px;
+      display: flex;
+      gap: 10px;
+      border-bottom: 2px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .tab-btn {
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: 0.3s;
+    }
+
+    .tab-btn:hover { background: var(--surface); color: var(--text); }
+    .tab-btn.active { background: var(--primary); color: #11111b; }
+
+    /* Kontener zawartości */
+    .container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 0 20px;
+    }
+
+    /* Karty i siatki */
     .card { 
       background: var(--card); 
       padding: 20px; 
       border-radius: 12px; 
       box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+      margin-bottom: 20px;
     }
 
-    .grid { 
-      display: grid; 
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
-      gap: 20px; 
-    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
     
-    label { 
-      display: block; 
-      margin: 10px 0 5px; 
-      font-weight: bold; 
-      font-size: 0.9em; 
-      color: var(--text-muted); 
-    }
+    h2 { margin-top: 0; font-size: 1.2em; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    label { display: block; margin: 10px 0 5px; font-weight: bold; font-size: 0.9em; color: var(--text-muted); }
     
-    input { 
-      width: 100%; 
-      padding: 10px; 
-      border-radius: 6px; 
-      border: 1px solid var(--border); 
-      background: var(--input-bg); 
-      color: var(--text); 
-      box-sizing: border-box; 
-    }
-    
-    input:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
+    input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); box-sizing: border-box; }
+    input:focus { outline: none; border-color: var(--primary); }
+    input[type="range"] { height: 8px; cursor: pointer; accent-color: var(--accent); }
+    textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: #11111b; color: var(--success); font-family: monospace; font-size: 14px; box-sizing: border-box; resize: vertical; }
+    textarea:focus { outline: none; border-color: var(--primary); }
 
-    input[type="range"] { 
-      height: 8px; 
-      cursor: pointer; 
-      accent-color: var(--accent); 
-    }
-
-    button { 
-      width: 100%; 
-      padding: 12px; 
-      background: var(--surface); 
-      color: var(--text); 
-      border: 1px solid var(--border); 
-      border-radius: 6px; 
-      font-size: 15px; 
-      font-weight: bold; 
-      cursor: pointer; 
-      transition: 0.2s; 
-    }
+    button.btn { width: 100%; padding: 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button.btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
     
-    button:hover { 
-      filter: brightness(1.2); 
-      transform: translateY(-1px); 
-    }
-
-    .btn-jog { background: var(--surface); }
-    .btn-primary { background: var(--primary); color: #11111b; border: none; }
-    .btn-success { background: var(--success); color: #11111b; border: none; margin-top: 10px; }
-    .btn-danger { background: var(--danger); color: #11111b; border: none; }
+    .btn-primary { background: var(--primary) !important; color: #11111b !important; border: none !important; }
+    .btn-success { background: var(--success) !important; color: #11111b !important; border: none !important; }
+    .btn-danger { background: var(--danger) !important; color: #11111b !important; border: none !important; }
     
-    .jog-grid { 
-      display: grid; 
-      grid-template-columns: repeat(4, 1fr); 
-      gap: 5px; 
-    }
-    
-    hr {
-      border: 0.5px solid var(--border);
-      margin: 15px 0;
-    }
+    .jog-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+    hr { border: 0.5px solid var(--border); margin: 15px 0; }
 
     #status { text-align: center; font-weight: bold; margin-top: 10px; }
     .status-idle { color: var(--success); font-weight: bold; }
@@ -126,177 +105,286 @@
     .unit { font-size: 0.8em; color: var(--text-muted); }
     .small-info { font-size: 0.85em; color: #f9e2af; } 
     
-    .highlight-box {
-      background: rgba(250, 179, 135, 0.1); 
-      padding: 15px; 
-      border-radius: 8px; 
-      margin-bottom: 20px; 
-      border-left: 4px solid var(--accent);
-    }
-
+    .highlight-box { background: rgba(250, 179, 135, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid var(--accent); }
+    .tab-content { display: none; animation: fadeIn 0.3s; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
   </style>
 </head>
 <body>
 
-<div class="grid">
-  <div class="card">
-    <h2>Podgląd na Żywo</h2>
-    <div class="tele-grid">
-      <div class="tele-box">
-        <label style="margin:0;">Oś X (Wózek)</label>
-        <div id="val-posX" class="big-val">0.00</div><span class="unit">mm</span>
-        <div id="val-velX" class="small-info">0.0000 m/s</div>
-      </div>
-      <div class="tele-box">
-        <label style="margin:0;">Oś Y (Wrzeciono)</label>
-        <div id="val-posY" class="big-val">0.0</div><span class="unit">°</span>
-        <div id="val-rpm" class="small-info">0 RPM</div>
-      </div>
-    </div>
-    <div style="margin-top: 15px; font-size: 0.85em; display: flex; justify-content: space-between; align-items: center;">
-      <span>Obciążenie X: <b id="val-loadX" style="color: var(--danger);">0%</b></span>
-      <span style="background: var(--surface); padding: 5px 12px; border-radius: 6px; font-weight: bold;">Zasilanie: <span id="motorsState" style="color: var(--text-muted);">---</span></span>
-      <span>Obciążenie Y: <b id="val-loadY" style="color: var(--danger);">0%</b></span>
-    </div>
-  <hr style="border: 0.5px solid var(--border); margin: 15px 0;">
-    <div style="font-size: 0.70em; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; color: var(--text-muted); font-family: monospace; text-align: center;">
-      <div style="display: flex; flex-direction: column; align-items: center;">
-        <span>Diag X: <b id="val-statX">0x00000000</b></span>
-        <span id="text-statX" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
-      </div>
-      <div style="display: flex; flex-direction: column; align-items: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border);">
-        <span>Diag Y: <b id="val-statY">0x00000000</b></span>
-        <span id="text-statY" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
-      </div>
-      <div style="display: flex; flex-direction: column; align-items: center;">
-        <span>Diag Z: <b id="val-statZ">0x00000000</b></span>
-        <span id="text-statZ" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
-      </div>
-    </div>
-    <div class="tele-box" style="grid-column: span 2; margin-top: 15px; border-top: 2px solid var(--accent);">
-        <label style="color: var(--accent); margin:0;">Hamulec (Naciąg)</label>
-        <div id="val-valZ" class="big-val" style="color: var(--accent);">0</div><span class="unit">mA</span>
-        <div style="background: var(--surface); height: 10px; border-radius: 5px; margin-top: 10px; overflow: hidden;">
-          <div id="bar-valZ" style="background: var(--accent); height: 100%; width: 0%; transition: 0.3s;"></div>
-        </div>
-      </div>
-    <hr>
-    <div style="text-align: center;">
-      <label style="display: inline-block;">Promień aktualnej szpuli [mm]:</label>
-      <input type="number" id="spool-radius" value="25" style="width: 80px; padding: 5px; margin-left: 10px; display: inline-block; text-align: center;">
-      <div id="val-wire-ms" style="color: var(--success); font-weight: bold; margin-top: 10px; font-size: 1.1em;">Prędkość drutu: 0.000 m/s</div>
-    </div>
+<!-- PASEK NAWIGACJI -->
+<div class="navbar">
+  <button class="tab-btn active" onclick="openTab(event, 'tab-dash')">Dashboard</button>
+  <button class="tab-btn" onclick="openTab(event, 'tab-control')">Sterowanie & JOG</button>
+  <button class="tab-btn" onclick="openTab(event, 'tab-config')">Konfiguracja Maszyny</button>
+  <button class="tab-btn" onclick="openTab(event, 'tab-system')">System & Sieć</button>
+  <button class="tab-btn" onclick="openTab(event, 'tab-raw-config'); loadRawConfig();">Podgląd Config.json</button>
+</div>
+
+<!-- GLOBALNY BANER BEZPIECZEŃSTWA -->
+<div class="container" style="margin-bottom: 0; padding-bottom: 0;">
+  <button class="btn btn-danger motion-ctrl" onclick="abortMotion()" style="font-size: 1.2em; padding: 15px; margin-top: 15px; box-shadow: 0 4px 15px rgba(243, 139, 168, 0.4); border: 2px solid #11111b !important;">
+    PRZERWIJ WYKONYWANY RUCH 
+  </button>
+  <div id="external-lock-warning" style="display: none; background: var(--danger); color: #11111b; padding: 10px; border-radius: 6px; text-align: center; font-weight: bold; margin-top: 15px;">
+    Zewnętrzny panel podłączony! Sterowanie ruchem z przeglądarki zablokowane.
   </div>
-
-  <div class="card">
-    <h2>Sterowanie Ręczne</h2>
-    <p>
-      Status: <span id="machineState" class="status-idle">GOTOWY</span>
-      <span id="temp-warning" style="display: none; background: var(--danger); color: #11111b; padding: 3px 10px; border-radius: 6px; font-weight: bold; margin-left: 15px; animation: blink 1s infinite;">
-        PRZEGRZANIE STEROWNIKA
-      </span>
-    </p>
-    
-    <div id="external-lock-warning" style="display: none; background: var(--danger); color: #11111b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-weight: bold;">
-      Zewnętrzny panel podłączony! Sterowanie ruchem z przeglądarki zablokowane.
-    </div>
-
-    <div class="highlight-box">
-      <label style="color: var(--text);">Globalne Nadpisanie Prędkości (Override): <span id="override-display" style="color: var(--accent); font-size: 1.2em;">100</span>%</label>
-      <input type="range" class="motion-ctrl" id="override-slider" min="5" max="200" value="100" oninput="updateOverride(this.value)">
-      <div style="font-size: 0.75em; color: var(--text-muted); margin-top: 5px;">Przesuń, aby natychmiast zwolnić lub przyspieszyć całą maszynę.</div>
-    </div>
-
-    <label>Prędkość (Feedrate): <span id="fr-val" style="color: var(--text);">500</span> mm/min</label>
-    <input type="range" class="motion-ctrl" id="feedrate" min="50" max="5000" step="10" value="500" oninput="document.getElementById('fr-val').innerText=this.value">
-    
-    <label>Ruch Wózka (X):</label>
-    <div class="jog-grid">
-      <button class="btn-jog motion-ctrl" onclick="jog('X', -10)">-10</button>
-      <button class="btn-jog motion-ctrl" onclick="jog('X', -1)">-1</button>
-      <button class="btn-jog motion-ctrl" onclick="jog('X', 1)">+1</button>
-      <button class="btn-jog motion-ctrl" onclick="jog('X', 10)">+10</button>
-    </div>
-    
-    <label>Ruch Wrzeciona (Y):</label>
-    <div class="jog-grid" style="margin-bottom: 15px;">
-      <button class="btn-jog motion-ctrl" onclick="jog('Y', -90)">-90°</button>
-      <button class="btn-jog motion-ctrl" onclick="jog('Y', 45)">+45°</button>
-      <button class="btn-jog motion-ctrl" onclick="jog('Y', 90)">+90°</button>
-      <button class="btn-jog motion-ctrl" onclick="jog('Y', 180)">+180°</button>
-    </div>
-    
-    <button class="btn-primary motion-ctrl" onclick="home()">BAZOWANIE MASZYNY</button>
+  <div id="temp-warning" style="display: none; background: var(--danger); color: #11111b; padding: 10px; border-radius: 6px; text-align: center; font-weight: bold; margin-top: 15px; animation: blink 1s infinite;">
+    AWARIA: PRZEGRZANIE STEROWNIKA SILNIKA!
   </div>
 </div>
 
-<div class="grid">
-  <div class="card">
-    <h2>Terminal G-Code</h2>
-    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
-      <input type="text" id="gcodeInput" class="motion-ctrl" placeholder="np. G1 X50 F500" style="margin-bottom: 0;">
-      <button class="btn-primary motion-ctrl" onclick="sendCustomGcode()" style="width: auto; white-space: nowrap;">Wyślij</button>
+<div class="container">
+
+  <!-- ZAKŁADKA 1: DASHBOARD -->
+  <div id="tab-dash" class="tab-content" style="display: block;">
+    <div class="grid">
+      <div class="card">
+        <h2>Podgląd na Żywo <span id="machineState" class="status-idle" style="float: right; font-size: 0.8em; padding-top: 5px;">GOTOWY</span></h2>
+        <div class="tele-grid">
+          <div class="tele-box">
+            <label style="margin:0;">Oś X (Wózek)</label>
+            <div id="val-posX" class="big-val">0.00</div><span class="unit">mm</span>
+            <div id="val-velX" class="small-info">0.0000 m/s</div>
+          </div>
+          <div class="tele-box">
+            <label style="margin:0;">Oś Y (Wrzeciono)</label>
+            <div id="val-posY" class="big-val">0.00</div><span class="unit">obr</span>
+            <div id="val-rpm" class="small-info">0 RPM</div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 15px; font-size: 0.85em; display: flex; justify-content: space-between; align-items: center;">
+          <span>Obciążenie X: <b id="val-loadX" style="color: var(--success);">0%</b></span>
+          <span style="background: var(--surface); padding: 5px 12px; border-radius: 6px; font-weight: bold;">Zasilanie: <span id="motorsState" style="color: var(--text-muted);">---</span></span>
+          <span>Obciążenie Y: <b id="val-loadY" style="color: var(--success);">0%</b></span>
+        </div>
+
+        <div class="tele-box" style="grid-column: span 2; margin-top: 15px; border-top: 2px solid var(--accent);">
+          <label style="color: var(--accent); margin:0;">Hamulec (Naciąg Z)</label>
+          <div id="val-valZ" class="big-val" style="color: var(--accent);">0</div><span class="unit">mA</span>
+          <div style="background: var(--surface); height: 10px; border-radius: 5px; margin-top: 10px; overflow: hidden;">
+            <div id="bar-valZ" style="background: var(--accent); height: 100%; width: 0%; transition: 0.3s;"></div>
+          </div>
+        </div>
+
+        <hr style="border: 0.5px solid var(--border); margin: 15px 0;">
+        <div style="font-size: 0.70em; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; color: var(--text-muted); font-family: monospace; text-align: center;">
+          <div style="display: flex; flex-direction: column; align-items: center;">
+            <span>Diag X: <b id="val-statX">0x00000000</b></span>
+            <span id="text-statX" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border);">
+            <span>Diag Y: <b id="val-statY">0x00000000</b></span>
+            <span id="text-statY" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center;">
+            <span>Diag Z: <b id="val-statZ">0x00000000</b></span>
+            <span id="text-statZ" style="color: var(--success); font-weight: bold; margin-top: 2px;">OK</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Globalne Nadpisanie (Override)</h2>
+        <div class="highlight-box">
+          <label style="color: var(--text);">Mnożnik Prędkości: <span id="override-display" style="color: var(--accent); font-size: 1.2em;">100</span>%</label>
+          <input type="range" class="motion-ctrl" id="override-slider" min="5" max="200" value="100" oninput="updateOverride(this.value)">
+          <div style="font-size: 0.75em; color: var(--text-muted); margin-top: 5px;">Płynna zmiana prędkości całej maszyny w czasie rzeczywistym.</div>
+        </div>
+
+        <h2>Prędkość Drutu</h2>
+        <div style="text-align: center; margin-top: 15px;">
+          <label style="display: inline-block;">Promień aktualnej szpuli [mm]:</label>
+          <input type="number" id="spool-radius" value="25" style="width: 80px; padding: 5px; margin-left: 10px; display: inline-block; text-align: center;">
+          <div id="val-wire-ms" style="color: var(--success); font-weight: bold; margin-top: 10px; font-size: 1.2em; padding: 15px; background: var(--surface); border-radius: 8px;">0.000 m/s</div>
+        </div>
+      </div>
     </div>
-    <div class="jog-grid">
-      <button class="btn-danger motion-ctrl" onclick="sendRaw('M18')" style="grid-column: span 2;">Silniki OFF</button>
-      <button class="btn-success motion-ctrl" onclick="sendRaw('M84')" style="grid-column: span 2; margin-top: 0;">Silniki ON</button>
-    </div>
-    <button class="motion-ctrl" onclick="sendRaw('G30')" style="margin-top: 10px;">Powrót do Zera (G30)</button>
-    <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 15px; line-height: 1.5;">
-      Dozwolone komendy: <code style="color: var(--primary);">G28</code> (Bazowanie), <code style="color: var(--primary);">G1 X.. Y.. Z..</code> (Ruch), <code style="color: var(--primary);">M18/M84</code> (Zasilanie silników).
-    </p>
   </div>
 
-  <div class="card">
-    <h2>Konfiguracja</h2>
-    <form id="configForm">
-      <label>Max Prąd Koła Hamującego Z (mA):</label>
-      <input type="number" id="max_z" name="max_z" step="1">
+  <!-- ZAKŁADKA 2: STEROWANIE & JOG -->
+  <div id="tab-control" class="tab-content">
+    <div class="grid">
+      <div class="card">
+        <h2>Panel JOG</h2>
+        <label>Prędkość JOG (Feedrate): <span id="fr-val" style="color: var(--text);">500</span> mm/min</label>
+        <input type="range" class="motion-ctrl" id="feedrate" min="50" max="5000" step="10" value="500" oninput="document.getElementById('fr-val').innerText=this.value">
+        
+        <label style="margin-top: 20px;">Ruch Wózka (X):</label>
+        <div class="jog-grid">
+          <button class="btn btn-jog motion-ctrl" onclick="jog('X', -10)">-10 mm</button>
+          <button class="btn btn-jog motion-ctrl" onclick="jog('X', -1)">-1 mm</button>
+          <button class="btn btn-jog motion-ctrl" onclick="jog('X', 1)">+1 mm</button>
+          <button class="btn btn-jog motion-ctrl" onclick="jog('X', 10)">+10 mm</button>
+        </div>
+        
+        <label style="margin-top: 20px;">Ruch Wrzeciona (Y):</label>
+        <div class="jog-grid" style="margin-bottom: 15px;">
+          <button class="btn btn-jog motion-ctrl" onclick="jog('Y', -90)">-90°</button>
+          <button class="btn btn-jog motion-ctrl" onclick="jog('Y', 45)">+45°</button>
+          <button class="btn btn-jog motion-ctrl" onclick="jog('Y', 90)">+90°</button>
+          <button class="btn btn-jog motion-ctrl" onclick="jog('Y', 180)">+180°</button>
+        </div>
+        
+        <button class="btn btn-primary motion-ctrl" onclick="home()" style="margin-top: 10px;">BAZOWANIE MASZYNY (G28)</button>
+        <button class="btn motion-ctrl" onclick="sendRaw('G30')" style="margin-top: 10px;">Powrót do Zera (G30)</button>
+      </div>
+
+      <div class="card">
+        <h2>Makra & Terminal</h2>
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+          <input type="text" id="gcodeInput" class="motion-ctrl" placeholder="Wpisz G-Code np. G1 X50 F500" style="margin-bottom: 0;">
+          <button class="btn btn-primary motion-ctrl" onclick="sendCustomGcode()" style="width: auto; white-space: nowrap;">Wyślij</button>
+        </div>
+        
+        <div class="jog-grid" style="gap: 10px;">
+          <button class="btn btn-danger motion-ctrl" onclick="sendRaw('M18')" style="grid-column: span 2;">Silniki OFF (Luz)</button>
+          <button class="btn btn-success motion-ctrl" onclick="sendRaw('M84')" style="grid-column: span 2;">Silniki ON (Trzymaj)</button>
+        </div>
+
+        <hr>
+        <label>Szybkie Akcje (Makra):</label>
+        <button id="btn-macro-1" class="btn motion-ctrl btn-macro" onclick="runMacro(1)" style="margin-bottom: 10px; display: none;">Makro 1</button>
+        <button id="btn-macro-2" class="btn motion-ctrl btn-macro" onclick="runMacro(2)" style="margin-bottom: 10px; display: none;">Makro 2</button>
+        <button id="btn-macro-3" class="btn motion-ctrl btn-macro" onclick="runMacro(3)" style="display: none;">Makro 3</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ZAKŁADKA 3: KONFIGURACJA MASZYNY -->
+  <div id="tab-config" class="tab-content">
+    <div class="grid">
+        <div class="card">
+        <h2>Parametry Kinematyki</h2>
+        <p style="font-size: 0.9em; color: var(--text-muted);">Zmiana parametrów wymaga zapisu do pamięci FLASH Pico.</p>
+        <form id="configForm">
+            <label>Maksymalny Prąd Koła Hamującego Z (mA):</label>
+            <input type="number" id="max_z" name="max_z" step="1">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+            <div>
+                <label>Max Prędkość X (mm/s):</label>
+                <input type="number" id="max_speed_x" name="max_speed_x" step="0.1">
+            </div>
+            <div>
+                <label>Max Prędkość Y (obr/s):</label>
+                <input type="number" id="max_speed_y" name="max_speed_y" step="0.1">
+            </div>
+            <div>
+                <label>Kroki/mm X (Wózek):</label>
+                <input type="number" id="steps_mm" name="steps_mm" step="0.01">
+            </div>
+            <div>
+                <label>Kroki/Obr Y (Wrzeciono):</label>
+                <input type="number" id="steps_rot" name="steps_rot" step="0.01">
+            </div>
+            </div>
+            <button type="submit" class="btn btn-success" id="saveBtn" style="margin-top: 20px;">Zapisz parametry</button>
+            <div id="status"></div>
+        </form>
+        </div>
+
+        <div class="card">
+        <h2>Konfigurator Makr</h2>
+        <p style="font-size: 0.9em; color: var(--text-muted);">Zdefiniuj własne przyciski wykonujące precyzyjne polecenia G-Code.</p>
+        <form id="macroForm">
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                <label style="margin-top: 0;">Makro 1 - Etykieta przycisku:</label>
+                <input type="text" id="m1_name" name="m1_name" placeholder="Np. Wyjazd w lewo">
+                <label>Makro 1 - Kod G-Code:</label>
+                <input type="text" id="m1_cmd" name="m1_cmd" placeholder="Np. G1 X-100 F1000">
+            </div>
+            
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                <label style="margin-top: 0;">Makro 2 - Etykieta przycisku:</label>
+                <input type="text" id="m2_name" name="m2_name" placeholder="Np. Do punktu zero">
+                <label>Makro 2 - Kod G-Code:</label>
+                <input type="text" id="m2_cmd" name="m2_cmd" placeholder="Np. G1 X0 Y0 F500">
+            </div>
+
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                <label style="margin-top: 0;">Makro 3 - Etykieta przycisku:</label>
+                <input type="text" id="m3_name" name="m3_name" placeholder="Np. Test Hamulca">
+                <label>Makro 3 - Kod G-Code:</label>
+                <input type="text" id="m3_cmd" name="m3_cmd" placeholder="Np. G1 Z500">
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="saveMacroBtn" style="margin-top: 10px;">Zapisz Makra do Pico</button>
+            <div id="macroStatus" style="text-align: center; font-weight: bold; margin-top: 10px;"></div>
+        </form>
+        </div>
+    </div>
+  </div>
+
+  <!-- ZAKŁADKA 4: SYSTEM & SIEĆ -->
+  <div id="tab-system" class="tab-content">
+    <div class="grid">
+      <div class="card">
+        <h2>Ustawienia Sieci WiFi</h2>
+        <p style="font-size: 0.9em; color: var(--text-muted);">Zmień dane dostępowe routera, do którego łączy się maszyna.</p>
+        <form id="wifiForm">
+          <label>Nazwa sieci (SSID):</label>
+          <input type="text" name="ssid" placeholder="Np. Domowe_WiFi" required>
+          <label>Hasło:</label>
+          <input type="password" name="pass" placeholder="Zostaw puste, jeśli sieć jest otwarta">
+          
+          <button type="submit" class="btn btn-primary" id="saveWifiBtn" style="margin-top: 20px;">Zapisz i zrestartuj moduł WiFi</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Zarządzanie Zasilaniem</h2>
+        <p style="font-size: 0.9em; color: var(--text-muted);">Zdalne zarządzanie mikrokontrolerem RP2350.</p>
+        <button class="btn btn-danger" onclick="rebootPico()" style="margin-bottom: 20px;">Wykonaj Twardy Restart Pico</button>
+        
+        <hr>
+        <h2>Informacje o Oprogramowaniu</h2>
+        <div style="color: var(--text-muted); font-size: 0.9em; line-height: 1.6;">
+          <div><strong style="color: var(--primary);">System:</strong> <span id="info-author">Nawijarka CNC</span> <span id="info-version" style="color: var(--success);">v--</span></div>
+          <div><strong>Kompilacja:</strong> <span id="info-date" style="color: #cdd6f4;">---</span></div>
+          <div><strong>Moduły:</strong> <span id="info-features" style="color: #cdd6f4;">---</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ZAKŁADKA 5: PODGLĄD CONFIG.JSON -->
+  <div id="tab-raw-config" class="tab-content">
+    <div class="card">
+      <h2>Zawartość pamięci: <code style="color: var(--primary);">config.json</code></h2>
+      <p style="font-size: 0.9em; color: var(--text-muted);">Surowy podgląd pliku konfiguracyjnego zapisanego w pamięci masowej (LittleFS) maszyny.</p>
       
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <div>
-          <label>Max Prędkość X:</label>
-          <input type="number" id="max_speed_x" name="max_speed_x" step="0.1">
-        </div>
-        <div>
-          <label>Max Prędkość Y:</label>
-          <input type="number" id="max_speed_y" name="max_speed_y" step="0.1">
-        </div>
-        <div>
-          <label>Kroki/mm X:</label>
-          <input type="number" id="steps_mm" name="steps_mm" step="0.01">
-        </div>
-        <div>
-          <label>Kroki/Obr Y:</label>
-          <input type="number" id="steps_rot" name="steps_rot" step="0.01">
-        </div>
-      </div>
-      <button type="submit" class="btn-success" id="saveBtn">Zapisz do Pico</button>
-    </form>
-    <div id="status"></div>
+      <button class="btn btn-primary" onclick="loadRawConfig()" style="margin-bottom: 15px; width: auto; padding: 8px 15px;">Odśwież plik</button>
+      
+      <textarea id="rawConfigDisplay" readonly spellcheck="false"></textarea>
+    </div>
   </div>
-</div>
 
-<div class="card" style="text-align: center; color: var(--text-muted); font-size: 0.85em; padding: 15px; margin-top: 10px;">
-  <div style="font-weight: bold; color: var(--primary); font-size: 1.1em; margin-bottom: 5px;">
-    <span id="info-author">Nawijarka CNC</span> <span id="info-version" style="color: var(--success);">v--</span>
-  </div>
-  <div>Kompilacja: <span id="info-date" style="color: #cdd6f4;">---</span></div>
-  <div style="margin-top: 5px;">Funkcje: <span id="info-features" style="color: #cdd6f4;">---</span></div>
-  <div style="margin-top: 10px; font-size: 0.8em; opacity: 0.6;">Działa na Raspberry Pi Pico (RP2035 Dual Core)</div>
 </div>
 
 <script>
+  // ZARZĄDZANIE ZAKŁADKAMI
+  function openTab(evt, tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.className = btn.className.replace(' active', ''));
+    document.getElementById(tabName).style.display = 'block';
+    if(evt) evt.currentTarget.className += ' active';
+  }
+
+  // WEBSOCKET I TELEMETRIA
   let websocket;
   const gateway = `ws://${window.location.hostname}:8080/`; 
+  let lastPosY = 0;
+  let lastTime = Date.now();
+  let currentRpm = 0;
 
   function initWebSocket() {
-    console.log('Łączenie z WebSocket...');
     websocket = new WebSocket(gateway);
-    
     websocket.onopen = function(event) { console.log('Połączono z WebSocket'); };
-    websocket.onclose = function(event) { console.log('Rozłączono. Ponawianie...'); setTimeout(initWebSocket, 2000); };
+    websocket.onclose = function(event) { setTimeout(initWebSocket, 2000); };
     
     websocket.onmessage = function(event) {
       try {
@@ -304,72 +392,47 @@
         if(data.msgType === 16) { 
           if(data.posX !== undefined) document.getElementById('val-posX').innerText = data.posX.toFixed(2);
           if(data.velX !== undefined) document.getElementById('val-velX').innerText = (data.velX / 1000).toFixed(4) + " m/s";
-          if(data.posY !== undefined) document.getElementById('val-posY').innerText = data.posY.toFixed(1);
           
-          let rpm = 0;
-          if(data.rpm !== undefined) {
-             rpm = data.rpm;
-             document.getElementById('val-rpm').innerText = rpm.toFixed(1) + " RPM";
+          let now = Date.now();
+          let dt = (now - lastTime) / 1000.0;
+          if(data.posY !== undefined) {
+             document.getElementById('val-posY').innerText = data.posY.toFixed(2);
+             if (dt > 0) {
+                 let deltaY = data.posY - lastPosY;
+                 if (Math.abs(deltaY) > 5) {
+                     currentRpm = 0;
+                 } else {
+                     currentRpm = deltaY / (dt / 60.0);
+                 }
+             }
+             lastPosY = data.posY;
+             lastTime = now;
           }
+          
+          if(data.rpm !== undefined) currentRpm = data.rpm;
+          document.getElementById('val-rpm').innerText = Math.abs(currentRpm).toFixed(1) + " RPM";
 
-          if(data.ot !== undefined) {
-              document.getElementById('temp-warning').style.display = data.ot ? 'inline-block' : 'none';
-          }
+          if(data.ot !== undefined) document.getElementById('temp-warning').style.display = data.ot ? 'block' : 'none';
 
-          // UWAGA: Potrzebujemy maxValZ, aby poprawnie wyliczyć pasek hamulca
-          let currentMaxZ = 1000; // Wartość domyślna
-          if(data.maxValZ !== undefined) {
-              currentMaxZ = data.maxValZ;
-          }
-
+          let currentMaxZ = data.maxValZ !== undefined ? data.maxValZ : 1000;
           if(data.valZ !== undefined) {
             document.getElementById('val-valZ').innerText = data.valZ;
-            let percent = (data.valZ / currentMaxZ) * 100; 
-            document.getElementById('bar-valZ').style.width = percent + "%";
+            document.getElementById('bar-valZ').style.width = ((data.valZ / currentMaxZ) * 100) + "%";
           }
 
-          if(data.statX !== undefined) {
-              document.getElementById('val-statX').innerText = "0x" + data.statX.toString(16).padStart(8, '0').toUpperCase();
-              let textX = decodeTmcStatus(data.statX);
-              let elX = document.getElementById('text-statX');
-              elX.innerText = textX;
-              elX.style.color = (textX === "OK") ? "var(--success)" : "var(--danger)";
-          }
-          
-          if(data.statY !== undefined) {
-              document.getElementById('val-statY').innerText = "0x" + data.statY.toString(16).padStart(8, '0').toUpperCase();
-              let textY = decodeTmcStatus(data.statY);
-              let elY = document.getElementById('text-statY');
-              elY.innerText = textY;
-              elY.style.color = (textY === "OK") ? "var(--success)" : "var(--danger)";
-          }
-
-          if(data.statZ !== undefined) {
-              document.getElementById('val-statZ').innerText = "0x" + data.statZ.toString(16).padStart(8, '0').toUpperCase();
-              let textZ = decodeTmcStatus(data.statZ);
-              let elZ = document.getElementById('text-statZ');
-              elZ.innerText = textZ;
-              elZ.style.color = (textZ === "OK") ? "var(--success)" : "var(--danger)";
-          }
+          if(data.statX !== undefined) updateDiag('statX', data.statX);
+          if(data.statY !== undefined) updateDiag('statY', data.statY);
+          if(data.statZ !== undefined) updateDiag('statZ', data.statZ);
 
           if(data.state !== undefined) {
              const st = document.getElementById('machineState');
-             if(data.state === "E-STOP") {
-                 st.innerText = "AWARIA (E-STOP)";
-                 st.className = "status-busy";
-             } else if(data.state === "RUN") {
-                 st.innerText = "W RUCHU";
-                 st.className = "status-run"; 
-             } else {
-                 st.innerText = "GOTOWY";
-                 st.className = "status-idle"; 
-             }
+             st.innerText = data.state === "E-STOP" ? "AWARIA (E-STOP)" : (data.state === "RUN" ? "W RUCHU" : "GOTOWY");
+             st.className = data.state === "E-STOP" ? "status-busy" : (data.state === "RUN" ? "status-run" : "status-idle");
           }
 
           if(data.clients !== undefined) {
               const isLocked = data.clients > 1; 
               document.getElementById('external-lock-warning').style.display = isLocked ? 'block' : 'none';
-              
               document.querySelectorAll('.motion-ctrl').forEach(el => {
                   el.disabled = isLocked;
                   el.style.opacity = isLocked ? '0.3' : '1';
@@ -378,143 +441,203 @@
           }
           
           const radius = parseFloat(document.getElementById('spool-radius').value) || 0;
-          const wireMs = (rpm / 60) * (2 * Math.PI * radius / 1000);
-          document.getElementById('val-wire-ms').innerText = "Prędkość drutu: " + wireMs.toFixed(4) + " m/s";
+          const wireMs = (Math.abs(currentRpm) / 60) * (2 * Math.PI * radius / 1000);
+          document.getElementById('val-wire-ms').innerText = wireMs.toFixed(4) + " m/s";
           
-          if(data.loadX !== undefined) {
-              let pctX = ((1023 - Math.max(0, Math.min(1023, data.loadX))) / 1023) * 100;
-              document.getElementById('val-loadX').innerText = pctX.toFixed(0) + "%";
-          }
-          if(data.loadY !== undefined) {
-              let pctY = ((1023 - Math.max(0, Math.min(1023, data.loadY))) / 1023) * 100;
-              document.getElementById('val-loadY').innerText = pctY.toFixed(0) + "%";
-          }
+          if(data.loadX !== undefined) updateLoad('loadX', data.loadX);
+          if(data.loadY !== undefined) updateLoad('loadY', data.loadY);
           
           if(data.motorsOn !== undefined) {
-          const ms = document.getElementById('motorsState');
-            if(data.motorsOn) {
-              ms.innerText = "ON (TRZYMA)";
-              ms.style.color = "var(--success)"; 
-            } else {
-              ms.innerText = "OFF (LUZ)";
-              ms.style.color = "var(--danger)"; 
-            }
+            const ms = document.getElementById('motorsState');
+            ms.innerText = data.motorsOn ? "ON (TRZYMA)" : "OFF (LUZ)";
+            ms.style.color = data.motorsOn ? "var(--success)" : "var(--danger)"; 
           }
         }
       } catch(e) {}
     };
   }
 
+  function updateDiag(id, val) {
+    document.getElementById('val-' + id).innerText = "0x" + val.toString(16).padStart(8, '0').toUpperCase();
+    let text = decodeTmcStatus(val);
+    let el = document.getElementById('text-' + id);
+    el.innerText = text;
+    el.style.color = (text === "OK") ? "var(--success)" : "var(--danger)";
+  }
+
+  function updateLoad(id, rawVal) {
+    let pct = ((1023 - Math.max(0, Math.min(1023, rawVal))) / 1023) * 100;
+    let el = document.getElementById('val-' + id);
+    el.innerText = pct.toFixed(0) + "%";
+    el.style.color = pct > 85 ? "var(--danger)" : (pct > 50 ? "var(--accent)" : "var(--success)");
+  }
+
   function decodeTmcStatus(statusVal) {
       let errors = [];
-      
-      // Jeżeli wartość to równe 0 lub 0xFFFFFFFF, oznacza to brak komunikacji SPI (odłączony zasilacz / sterownik).
-      if (statusVal === 0 || statusVal === 4294967295) return "BŁĄD SPI / BRAK ZASILANIA";
-
-      if (statusVal & (1 << 30)) errors.push("PRZEGRZANIE (OT)!");
-      else if (statusVal & (1 << 29)) errors.push("Ostrz. Temp. (OTPW)");
-      
-      if (statusVal & (1 << 28)) errors.push("Zwarcie do masy A (S2GA)");
-      if (statusVal & (1 << 27)) errors.push("Zwarcie do masy B (S2GB)");
-      
-      if (statusVal & (1 << 26)) errors.push("Brak silnika A (OLA)");
-      if (statusVal & (1 << 25)) errors.push("Brak silnika B (OLB)");
-
+      if (statusVal === 0 || statusVal === 4294967295) return "BŁĄD SPI";
+      if (statusVal & (1 << 30)) errors.push("PRZEGRZANIE!");
+      else if (statusVal & (1 << 29)) errors.push("Ostrz. Temp.");
+      if (statusVal & (1 << 28)) errors.push("Zwarcie A");
+      if (statusVal & (1 << 27)) errors.push("Zwarcie B");
+      if (statusVal & (1 << 26)) errors.push("Brak silnika A");
+      if (statusVal & (1 << 25)) errors.push("Brak silnika B");
       return errors.length > 0 ? errors.join(" | ") : "OK";
+  }
+
+  // STEROWANIE
+  function abortMotion() {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send("ABORT");
+    } else alert("Brak połączenia z maszyną!");
   }
 
   function updateOverride(val) {
     document.getElementById('override-display').innerText = val;
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send("OVERRIDE:" + val);
-    }
+    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("OVERRIDE:" + val);
   }
 
   function sendCustomGcode() {
     var cmd = document.getElementById('gcodeInput').value.trim();
     if (!cmd) return;
-    fetch('/api/jog?cmd=' + encodeURIComponent(cmd)).then(response => {
-        if (response.ok) document.getElementById('gcodeInput').value = ''; 
-    });
+    fetch('/api/jog?cmd=' + encodeURIComponent(cmd)).then(r => { if (r.ok) document.getElementById('gcodeInput').value = ''; });
   }
   
-  document.getElementById('gcodeInput').addEventListener("keypress", function(event) {
-    if (event.key === "Enter") { event.preventDefault(); sendCustomGcode(); }
-  });
+  document.getElementById('gcodeInput').addEventListener("keypress", e => { if (e.key === "Enter") { e.preventDefault(); sendCustomGcode(); } });
 
   function jog(axis, dist) {
     var speed = document.getElementById('feedrate').value;
-    let finalDist = dist;
-    if (axis === 'Y' || axis === 'Z') finalDist = (dist / 360.0).toFixed(4);
+    let finalDist = (axis === 'Y' || axis === 'Z') ? (dist / 360.0).toFixed(4) : dist;
     fetch(`/api/jog?axis=${axis}&dist=${finalDist}&speed=${speed}`);
   }
 
   function sendRaw(cmd) { fetch(`/api/jog?cmd=${cmd}`); }
   function home() { if(confirm("Czy na pewno bazować maszynę?")) fetch('/api/jog?cmd=HOME'); }
+  function rebootPico() { if(confirm("Maszyna natychmiast przerwie pracę. Kontynuować?")) fetch('/api/reboot', {method: 'POST'}); }
+  
+  // LOGIKA MAKR
+  let machineMacros = { m1_cmd: "", m2_cmd: "", m3_cmd: "" };
 
+  function applyMacrosToUI(data) {
+      if(data.m1_name && data.m1_name !== "") {
+          document.getElementById('btn-macro-1').style.display = "block";
+          document.getElementById('btn-macro-1').innerText = data.m1_name;
+          document.getElementById('m1_name').value = data.m1_name;
+          if(data.m1_cmd) { machineMacros.m1_cmd = data.m1_cmd; document.getElementById('m1_cmd').value = data.m1_cmd; }
+      }
+      if(data.m2_name && data.m2_name !== "") {
+          document.getElementById('btn-macro-2').style.display = "block";
+          document.getElementById('btn-macro-2').innerText = data.m2_name;
+          document.getElementById('m2_name').value = data.m2_name;
+          if(data.m2_cmd) { machineMacros.m2_cmd = data.m2_cmd; document.getElementById('m2_cmd').value = data.m2_cmd; }
+      }
+      if(data.m3_name && data.m3_name !== "") {
+          document.getElementById('btn-macro-3').style.display = "block";
+          document.getElementById('btn-macro-3').innerText = data.m3_name;
+          document.getElementById('m3_name').value = data.m3_name;
+          if(data.m3_cmd) { machineMacros.m3_cmd = data.m3_cmd; document.getElementById('m3_cmd').value = data.m3_cmd; }
+      }
+  }
+
+  function runMacro(id) {
+      const cmd = machineMacros['m' + id + '_cmd'];
+      if(cmd && cmd !== "") fetch('/api/jog?cmd=' + encodeURIComponent(cmd));
+  }
+
+  // WYSWIETLANIE SUROWEGO CONFIG.JSON
+  function loadRawConfig() {
+    const display = document.getElementById('rawConfigDisplay');
+    display.value = "Pobieranie pliku z Pico...";
+    fetch('/api/config')
+      .then(response => response.text())
+      .then(text => {
+        try {
+            // Próbujemy sformatować JSON, żeby był ładny i czytelny (wcięcia 4 spacje)
+            const parsed = JSON.parse(text);
+            display.value = JSON.stringify(parsed, null, 4);
+        } catch(e) {
+            // Jeśli z jakiegoś powodu nie jest to poprawny JSON, wyświetlamy surowy tekst
+            display.value = text;
+        }
+      })
+      .catch(err => {
+        display.value = "Wystąpił błąd podczas pobierania pliku config.json!";
+      });
+  }
+
+  // ŁADOWANIE USTAWIEŃ PO STARCIE
   window.onload = function() {
     initWebSocket();
     const savedRadius = localStorage.getItem('spoolRadius');
-    
-    document.getElementById('spool-radius').addEventListener('change', function(e) {
-      localStorage.setItem('spoolRadius', e.target.value);
+    document.getElementById('spool-radius').addEventListener('change', e => localStorage.setItem('spoolRadius', e.target.value));
+    if(savedRadius) document.getElementById('spool-radius').value = savedRadius;
+
+    fetch('/api/config').then(r => r.json()).then(data => {
+        if (data.max_z) document.getElementById('max_z').value = data.max_z;
+        if (data.max_speed_x) document.getElementById('max_speed_x').value = data.max_speed_x;
+        if (data.max_speed_y) document.getElementById('max_speed_y').value = data.max_speed_y;
+        if (data.steps_mm) document.getElementById('steps_mm').value = data.steps_mm;
+        if (data.steps_rot) document.getElementById('steps_rot').value = data.steps_rot;
+        applyMacrosToUI(data);
     });
 
-    if(savedRadius) document.getElementById('spool-radius').value = savedRadius;
-    const statusEl = document.getElementById('status');
-    statusEl.innerText = "Pobieranie ustawień...";
-    statusEl.style.color = "var(--text-muted)";
-
-    // Pobieranie konfigu
-    fetch('/api/config')
-      .then(response => response.json())
-      .then(data => {
-        for (const key in data) if (document.getElementById(key)) document.getElementById(key).value = data[key];
-        statusEl.innerText = "";
-      })
-      .catch(error => { statusEl.innerText = "Błąd połączenia z Pico"; statusEl.style.color = "var(--danger)"; });
-
-    fetch('/api/info')
-      .then(response => response.json())
-      .then(data => {
+    fetch('/api/info').then(r => r.json()).then(data => {
         document.getElementById('info-version').innerText = data.version;
         document.getElementById('info-date').innerText = data.date;
         document.getElementById('info-author').innerText = data.author;
         document.getElementById('info-features').innerText = data.features;
-      })
-      .catch(err => console.log("Błąd pobierania info: ", err));
+    });
   };
 
+  // ZAPIS KONFIGURACJI KINEMATYKI
   document.getElementById('configForm').addEventListener('submit', function(e) {
     e.preventDefault(); 
     const saveBtn = document.getElementById('saveBtn');
     const statusEl = document.getElementById('status');
+    saveBtn.disabled = true; saveBtn.innerText = "Zapisywanie...";
     
-    saveBtn.disabled = true;
-    saveBtn.innerText = "Zapisywanie...";
-
-    const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData.entries());
+    const data = Object.fromEntries(new FormData(e.target).entries());
     for(let key in data) data[key] = parseFloat(data[key]);
 
-    fetch('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    })
-    .then(response => {
-      if (response.ok) {
-        statusEl.innerText = "Zapisano pomyślnie!";
-        statusEl.style.color = "var(--success)";
-        setTimeout(() => statusEl.innerText = "", 3000);
-      } else {
-        statusEl.innerText = "Błąd zapisu!";
-        statusEl.style.color = "var(--danger)";
-      }
-    })
-    .catch(error => { statusEl.innerText = "Błąd sieci!"; statusEl.style.color = "var(--danger)"; })
-    .finally(() => { saveBtn.disabled = false; saveBtn.innerText = "Zapisz do Pico"; });
+    fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+    .then(r => {
+        if(r.ok) { statusEl.innerText = "Zapisano pomyślnie!"; statusEl.style.color = "var(--success)"; setTimeout(() => statusEl.innerText = "", 3000); } 
+        else { statusEl.innerText = "Błąd zapisu!"; statusEl.style.color = "var(--danger)"; }
+    }).finally(() => { saveBtn.disabled = false; saveBtn.innerText = "Zapisz parametry"; });
   });
+
+  // ZAPIS MAKR
+  document.getElementById('macroForm').addEventListener('submit', function(e) {
+    e.preventDefault(); 
+    const saveBtn = document.getElementById('saveMacroBtn');
+    const statusEl = document.getElementById('macroStatus');
+    saveBtn.disabled = true; saveBtn.innerText = "Zapisywanie...";
+    
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    fetch('/api/macro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+    .then(r => {
+        if(r.ok) {
+            statusEl.innerText = "Makra zapisane i uaktywnione!"; 
+            statusEl.style.color = "var(--success)"; 
+            applyMacrosToUI(data); 
+            setTimeout(() => statusEl.innerText = "", 3000); 
+        } else { 
+            statusEl.innerText = "Błąd zapisu!"; 
+            statusEl.style.color = "var(--danger)"; 
+        }
+    }).finally(() => { saveBtn.disabled = false; saveBtn.innerText = "Zapisz Makra do Pico"; });
+  });
+
+  // FORMULARZ WIFI
+  document.getElementById('wifiForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    if(!confirm("Pico zapisze dane, rozłączy się i zrestartuje. Możesz stracić połączenie. Kontynuować?")) return;
+    const saveBtn = document.getElementById('saveWifiBtn');
+    saveBtn.disabled = true; saveBtn.innerText = "Restartowanie...";
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    fetch('/api/wifi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+    .catch(() => console.log("Połączenie przerwane celowo (Pico się restartuje)."));
+  });
+
 </script>
 
 </body>

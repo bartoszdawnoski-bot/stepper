@@ -80,6 +80,8 @@ private:
     static uint pio1_start_mask; ///< Maska bitowa do jednoczesnego startu (pio1).
     static uint pio2_start_mask; ///< Maska bitowa do jednoczesnego startu (pio2).
     static float global_override;
+    static mutex_t spi_mutex;
+    static bool spi_mutex_initialized;
 
     float sys_clock;
     float steps_per_second;

@@ -7,7 +7,7 @@
 #include <malloc.h>
 #include "pico/mutex.h"
 
-#define FIRMWARE_VERSION "v1.0.0"
+#define FIRMWARE_VERSION "v1.1.0"
 #define FIRMWARE_DATE __DATE__ " " __TIME__ 
 #define FIRMWARE_AUTHOR "Bartosz Danowski"
 #define FIRMWARE_FEATURES "TMC5160 SPI, PIO Steppers, WebSockets, G-Code Parser"
@@ -98,11 +98,9 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
         global_packet_counter++;
         if (global_packet_counter % 100 == 0) printMemoryDebug(global_packet_counter);
 
-
-        String msg = String((char*)payload);
-        if (msg.startsWith("OVERRIDE:")) 
+       if (length >= 9 && strncmp((const char*)payload, "OVERRIDE:", 9) == 0) 
         {
-            float val = msg.substring(9).toFloat() / 100.0f; 
+            float val = atof((const char*)payload + 9) / 100.0f; 
             Stepper::set_global_override(val);
             
             if(Serial) { 
@@ -282,30 +280,39 @@ void loop()
         }
     }
 
-    processedData task;
-    if(!procesor.is_em_stopped() && !is_cmd_empty() && !is_ack_full())
+   processedData task;
+    bool has_task = false;
+
+    if(!procesor.is_em_stopped() && !is_ack_full())
     {
         mutex_enter_blocking(&cmd_mutex);
-        task = comandQueue[cmdtail];
-        cmdtail = (cmdtail + 1) % BUFFER_SIZE;
+        if(!is_cmd_empty()) {
+            task = comandQueue[cmdtail];
+            cmdtail = (cmdtail + 1) % BUFFER_SIZE;
+            has_task = true;
+        }
         mutex_exit(&cmd_mutex);
 
-        if(strnlen(task.Gcode, MAX_GCODE_LEN) > 0)
+        if(has_task && strnlen(task.Gcode, MAX_GCODE_LEN) > 0)
         {
             procesor.processLine(task.Gcode, !is_cmd_empty()); 
         } 
         
-        processedStatus ack;
-        ack.msgType = task.msgType;
-        ack.id = task.id;
-        strncpy(ack.state, "OK", STATE_LEN);
-        ack.target_client = task.client_num;
-        ack.ack = true;
+        if(has_task) {
+            processedStatus ack;
+            ack.msgType = task.msgType;
+            ack.id = task.id;
+            strncpy(ack.state, "OK", STATE_LEN);
+            ack.target_client = task.client_num;
+            ack.ack = true;
 
-        mutex_enter_blocking(&ack_mutex);
-        ackQueue[ackhead] = ack;
-        ackhead = (ackhead + 1) % BUFFER_SIZE;
-        mutex_exit(&ack_mutex);
+            mutex_enter_blocking(&ack_mutex);
+            if (!is_ack_full()) {
+                ackQueue[ackhead] = ack;
+                ackhead = (ackhead + 1) % BUFFER_SIZE;
+            }
+            mutex_exit(&ack_mutex);
+        }
     }
 }
 
@@ -340,7 +347,7 @@ void loop1()
         wifi.config_changed = false;
     }
 
-    if (millis() - last_telemetry > 500) 
+    if (millis() - last_telemetry > 200) 
     {
         unsigned long now = millis();
         float dt = (now - last_telemetry) / 1000.0f; 
@@ -349,14 +356,14 @@ void loop1()
         StaticJsonDocument<512> doc;
         doc["msgType"] = 0x10; 
         
-        float posX = (float)motorA.getPosition() / (100.0f * motorA.get_microsteps()); 
+        float posX = (float)motorA.getPosition() / (procesor.get_steps_perMM_x() * motorA.get_microsteps());
         doc["posX"] = posX;
         
         doc["velX"] = (posX - last_posX) / dt; 
         last_posX = posX; 
  
-        float posY = (float)motorB.getPosition() / (200.0f * motorB.get_microsteps());
-        doc["posY"] = posY * 360.0f; 
+        float posY = (float)motorB.getPosition() / (procesor.get_steps_per_rotation_c() * motorB.get_microsteps());
+        doc["posY"] = posY; 
         
         doc["loadX"] = motorA.get_load(); 
         doc["loadY"] = motorB.get_load();
@@ -413,5 +420,6 @@ void loop1()
         processed_count++;
         mutex_exit(&ack_mutex);
         
+        yield();
     }
 }
