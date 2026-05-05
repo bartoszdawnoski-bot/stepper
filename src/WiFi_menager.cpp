@@ -257,6 +257,47 @@ void WiFiMenager::ap_wizard()
 
 }
 
+bool WiFiMenager::handle_sd_read(String path) {
+    if (path.endsWith("/")) path += "index.html";
+    
+    mutex_enter_blocking(&Stepper::spi_mutex);
+    bool exists = SD.exists(path);
+    mutex_exit(&Stepper::spi_mutex);
+
+    if (exists) {
+        mutex_enter_blocking(&Stepper::spi_mutex);
+        File file = SD.open(path, "r");
+        size_t fileSize = file.size();
+        mutex_exit(&Stepper::spi_mutex);
+        
+        server.sendHeader("Cache-Control", "public, max-age=31536000");
+        server.setContentLength(fileSize);
+        server.send(200, get_content_type(path), "");
+        
+        uint8_t buffer[512];
+        
+        mutex_enter_blocking(&Stepper::spi_mutex);
+        bool isAvailable = file.available();
+        mutex_exit(&Stepper::spi_mutex);
+
+        while (isAvailable) {
+            mutex_enter_blocking(&Stepper::spi_mutex);
+            size_t bytesRead = file.read(buffer, sizeof(buffer));
+            isAvailable = file.available();
+            mutex_exit(&Stepper::spi_mutex); 
+            
+            server.client().write(buffer, bytesRead);
+            yield();
+        }
+        
+        mutex_enter_blocking(&Stepper::spi_mutex);
+        file.close();
+        mutex_exit(&Stepper::spi_mutex);
+        return true;
+    }
+    return false;
+}
+
 bool WiFiMenager::init()
 {
     if(WiFi.status() == WL_CONNECTED) return true; 
@@ -270,6 +311,19 @@ bool WiFiMenager::init()
     else 
     {
         if(Serial) Serial.println("[FS] Mounted successfully.");
+    }
+
+    mutex_enter_blocking(&Stepper::spi_mutex);
+    bool sd_ok = SD.begin(TMC_CS_PIN_IGNORE);
+    mutex_exit(&Stepper::spi_mutex);
+
+    if (!sd_ok) 
+    {
+        if(Serial) Serial.println("[SD] SD card initialization fails");
+    } 
+    else 
+    {
+        if(Serial) Serial.println("[SD] SD card mounted on a common SPI bus");
     }
    
     String saved_ssid = "";
@@ -360,11 +414,23 @@ bool WiFiMenager::init()
         server.on("/", HTTP_GET, [this](){
             if(!this->handle_file_read("/index.html")) this->server.send(404, "text/plain", "Config file not found");
         });
-        server.onNotFound([this]() 
+       server.onNotFound([this]() 
         {
-            if (!this->handle_file_read(this->server.uri())) 
+            String uri = this->server.uri();
+            
+            if (uri.startsWith("/app/"))
             {
-                this->server.send(404, "text/plain", "404: File Not Found");
+                if (!this->handle_sd_read(uri)) 
+                {
+                    this->server.send(404, "text/plain", "Nie znaleziono pliku na karcie SD!");
+                }
+            } 
+            else 
+            {
+                if (!this->handle_file_read(uri)) 
+                {
+                    this->server.send(404, "text/plain", "404: File Not Found");
+                }
             }
         });
         server.on("/api/info", HTTP_GET, [this](){ this->handle_info_get(); });
@@ -381,11 +447,11 @@ bool WiFiMenager::init()
                 return;
             }
             
-            StaticJsonDocument<512> new_macros;
+            StaticJsonDocument<1024> new_macros;
             deserializeJson(new_macros, server.arg("plain"));
             
             // Pobieramy stary konfig maszyny
-            StaticJsonDocument<1024> full_config;
+            StaticJsonDocument<2048> full_config;
             if (LittleFS.exists("/config.json")) {
                 File file = LittleFS.open("/config.json", "r");
                 deserializeJson(full_config, file);

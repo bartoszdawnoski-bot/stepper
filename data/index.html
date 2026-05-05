@@ -107,9 +107,12 @@
     
     .highlight-box { background: rgba(250, 179, 135, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid var(--accent); }
     .tab-content { display: none; animation: fadeIn 0.3s; }
-    
+    spinner { border: 6px solid var(--surface); border-top: 6px solid var(--primary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 15px auto;}
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+    
   </style>
 </head>
 <body>
@@ -117,10 +120,11 @@
 <!-- PASEK NAWIGACJI -->
 <div class="navbar">
   <button class="tab-btn active" onclick="openTab(event, 'tab-dash')">Dashboard</button>
-  <button class="tab-btn" onclick="openTab(event, 'tab-control')">Sterowanie & JOG</button>
+  <button class="tab-btn" onclick="openTab(event, 'tab-control')">Sterowanie</button>
   <button class="tab-btn" onclick="openTab(event, 'tab-config')">Konfiguracja Maszyny</button>
   <button class="tab-btn" onclick="openTab(event, 'tab-system')">System & Sieć</button>
-  <button class="tab-btn" onclick="openTab(event, 'tab-raw-config'); loadRawConfig();">Podgląd Config.json</button>
+  <button class="tab-btn" onclick="openTab(event, 'tab-raw-config'); loadRawConfig();">Logi</button>
+  <button class="tab-btn" onclick="openTab(event, 'tab-react'); loadReactApp();">Kreator Cewek 3D</button>
 </div>
 
 <!-- GLOBALNY BANER BEZPIECZEŃSTWA -->
@@ -289,27 +293,27 @@
 
         <div class="card">
         <h2>Konfigurator Makr</h2>
-        <p style="font-size: 0.9em; color: var(--text-muted);">Zdefiniuj własne przyciski wykonujące precyzyjne polecenia G-Code.</p>
+        <p style="font-size: 0.9em; color: var(--text-muted);">Zdefiniuj własne przyciski wykonujące precyzyjne procedury G-Code (możesz wpisać wiele linii).</p>
         <form id="macroForm">
             <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
                 <label style="margin-top: 0;">Makro 1 - Etykieta przycisku:</label>
-                <input type="text" id="m1_name" name="m1_name" placeholder="Np. Wyjazd w lewo">
-                <label>Makro 1 - Kod G-Code:</label>
-                <input type="text" id="m1_cmd" name="m1_cmd" placeholder="Np. G1 X-100 F1000">
+                <input type="text" id="m1_name" name="m1_name" placeholder="Np. Start Nawijania">
+                <label>Makro 1 - Kod G-Code (Procedura):</label>
+                <textarea id="m1_cmd" name="m1_cmd" rows="4" placeholder="G28&#10;G91&#10;G1 X50 F500&#10;G90"></textarea>
             </div>
             
             <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
                 <label style="margin-top: 0;">Makro 2 - Etykieta przycisku:</label>
-                <input type="text" id="m2_name" name="m2_name" placeholder="Np. Do punktu zero">
-                <label>Makro 2 - Kod G-Code:</label>
-                <input type="text" id="m2_cmd" name="m2_cmd" placeholder="Np. G1 X0 Y0 F500">
+                <input type="text" id="m2_name" name="m2_name" placeholder="Np. Zmiana Szpuli">
+                <label>Makro 2 - Kod G-Code (Procedura):</label>
+                <textarea id="m2_cmd" name="m2_cmd" rows="4" placeholder="M18&#10;G1 X0 Y0 F1000"></textarea>
             </div>
 
             <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
                 <label style="margin-top: 0;">Makro 3 - Etykieta przycisku:</label>
                 <input type="text" id="m3_name" name="m3_name" placeholder="Np. Test Hamulca">
-                <label>Makro 3 - Kod G-Code:</label>
-                <input type="text" id="m3_cmd" name="m3_cmd" placeholder="Np. G1 Z500">
+                <label>Makro 3 - Kod G-Code (Procedura):</label>
+                <textarea id="m3_cmd" name="m3_cmd" rows="4" placeholder="G1 Z500"></textarea>
             </div>
 
             <button type="submit" class="btn btn-primary" id="saveMacroBtn" style="margin-top: 10px;">Zapisz Makra do Pico</button>
@@ -353,14 +357,41 @@
 
   <!-- ZAKŁADKA 5: PODGLĄD CONFIG.JSON -->
   <div id="tab-raw-config" class="tab-content">
-    <div class="card">
-      <h2>Zawartość pamięci: <code style="color: var(--primary);">config.json</code></h2>
-      <p style="font-size: 0.9em; color: var(--text-muted);">Surowy podgląd pliku konfiguracyjnego zapisanego w pamięci masowej (LittleFS) maszyny.</p>
-      
-      <button class="btn btn-primary" onclick="loadRawConfig()" style="margin-bottom: 15px; width: auto; padding: 8px 15px;">Odśwież plik</button>
-      
-      <textarea id="rawConfigDisplay" readonly spellcheck="false"></textarea>
+    <div class="grid">
+      <div class="card">
+        <h2>Zawartość pamięci: <code style="color: var(--primary);">config.json</code></h2>
+        <p style="font-size: 0.9em; color: var(--text-muted);">Surowy podgląd pliku konfiguracyjnego zapisanego w pamięci masowej (LittleFS).</p>
+        <button class="btn btn-primary" onclick="loadRawConfig()" style="margin-bottom: 15px; width: auto; padding: 8px 15px;">Odśwież plik</button>
+        <textarea id="rawConfigDisplay" readonly spellcheck="false" rows="12"></textarea>
+      </div>
+
+      <div class="card">
+        <h2>Logi Maszyny (Live Console)</h2>
+        <p style="font-size: 0.9em; color: var(--text-muted);">Komunikaty systemowe i błędy odbierane w czasie rzeczywistym.</p>
+        <button class="btn" onclick="document.getElementById('web-console').value=''" style="margin-bottom: 15px; width: auto; padding: 8px 15px;">Wyczyść konsolę</button>
+        <textarea id="web-console" readonly spellcheck="false" rows="12" style="background: #000; color: #a6e3a1; font-family: monospace; font-size: 0.9em;"></textarea>
+      </div>
     </div>
+  </div>
+
+  <!-- ZAKŁADKA: KREATOR CEWEK (REACT Z KARTY SD) -->
+  <div id="tab-react" class="tab-content" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; background: var(--bg); margin: 0; padding: 0;">
+    
+    <!-- Pływający przycisk powrotu do standardowego panelu -->
+    <button onclick="openTab(event, 'tab-dash')" style="position: absolute; top: 15px; right: 20px; z-index: 10000; background: var(--danger); color: #11111b; border: none; padding: 10px 20px; font-weight: bold; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.6); transition: 0.2s;">
+      Wróć do Panelu
+    </button>
+
+    <!-- Ekran ładowania -->
+    <div id="react-loader" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+      <div class="spinner"></div>
+      <h3 style="color: var(--primary);">Ładowanie środowiska 3D...</h3>
+      <p style="color: var(--text-muted); font-size: 0.9em;">Pierwsze uruchomienie pobiera pliki z karty SD.</p>
+    </div>
+
+    <!-- Iframe na pełnym ekranie -->
+    <iframe id="react-frame" style="width: 100%; height: 100%; border: none; display: none;" onload="hideLoader()"></iframe>
+    
   </div>
 
 </div>
@@ -389,6 +420,15 @@
     websocket.onmessage = function(event) {
       try {
         const data = JSON.parse(event.data);
+
+        if(data.log !== undefined) {
+            const consoleEl = document.getElementById('web-console');
+            const time = new Date().toLocaleTimeString('pl-PL');
+            consoleEl.value += `[${time}] ${data.log}\n`;
+            consoleEl.scrollTop = consoleEl.scrollHeight; 
+            return; 
+        }
+
         if(data.msgType === 16) { 
           if(data.posX !== undefined) document.getElementById('val-posX').innerText = data.posX.toFixed(2);
           if(data.velX !== undefined) document.getElementById('val-velX').innerText = (data.velX / 1000).toFixed(4) + " m/s";
@@ -414,7 +454,7 @@
 
           if(data.ot !== undefined) document.getElementById('temp-warning').style.display = data.ot ? 'block' : 'none';
 
-          let currentMaxZ = data.maxValZ !== undefined ? data.maxValZ : 1000;
+          let currentMaxZ = data.maxValZ !== undefined ? data.maxValZ : 1500;
           if(data.valZ !== undefined) {
             document.getElementById('val-valZ').innerText = data.valZ;
             document.getElementById('bar-valZ').style.width = ((data.valZ / currentMaxZ) * 100) + "%";
@@ -457,6 +497,19 @@
     };
   }
 
+  let isReactLoaded = false;
+  function loadReactApp() {
+    if (!isReactLoaded) {
+      document.getElementById('react-loader').style.display = 'block';
+      document.getElementById('react-frame').src = '/app/index.html'; 
+      isReactLoaded = true;
+    }
+  }
+  function hideLoader() {
+    document.getElementById('react-loader').style.display = 'none';
+    document.getElementById('react-frame').style.display = 'block';
+  }
+
   function updateDiag(id, val) {
     document.getElementById('val-' + id).innerText = "0x" + val.toString(16).padStart(8, '0').toUpperCase();
     let text = decodeTmcStatus(val);
@@ -496,25 +549,45 @@
     if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("OVERRIDE:" + val);
   }
 
+  function sendRaw(cmd) { 
+      if (websocket && websocket.readyState === WebSocket.OPEN) {
+          websocket.send(cmd);
+      } else {
+          alert("Brak połączenia z maszyną!");
+      }
+  }
+
   function sendCustomGcode() {
     var cmd = document.getElementById('gcodeInput').value.trim();
     if (!cmd) return;
-    fetch('/api/jog?cmd=' + encodeURIComponent(cmd)).then(r => { if (r.ok) document.getElementById('gcodeInput').value = ''; });
+    sendRaw(cmd);
+    document.getElementById('gcodeInput').value = ''; 
   }
   
-  document.getElementById('gcodeInput').addEventListener("keypress", e => { if (e.key === "Enter") { e.preventDefault(); sendCustomGcode(); } });
+  document.getElementById('gcodeInput').addEventListener("keypress", e => { 
+      if (e.key === "Enter") { e.preventDefault(); sendCustomGcode(); } 
+  });
 
   function jog(axis, dist) {
     var speed = document.getElementById('feedrate').value;
     let finalDist = (axis === 'Y' || axis === 'Z') ? (dist / 360.0).toFixed(4) : dist;
-    fetch(`/api/jog?axis=${axis}&dist=${finalDist}&speed=${speed}`);
+    
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.send("G91"); 
+        websocket.send(`G1 ${axis}${finalDist} F${speed}`); 
+        websocket.send("G90"); 
+    }
   }
 
-  function sendRaw(cmd) { fetch(`/api/jog?cmd=${cmd}`); }
-  function home() { if(confirm("Czy na pewno bazować maszynę?")) fetch('/api/jog?cmd=HOME'); }
-  function rebootPico() { if(confirm("Maszyna natychmiast przerwie pracę. Kontynuować?")) fetch('/api/reboot', {method: 'POST'}); }
-  
-  // LOGIKA MAKR
+  function home() { 
+      if(confirm("Czy na pewno bazować maszynę?")) sendRaw("G28"); 
+  }
+
+  function rebootPico() { 
+      if(confirm("Maszyna natychmiast przerwie pracę. Kontynuować?")) {
+          fetch('/api/reboot', {method: 'POST'}); 
+      }
+  }
   let machineMacros = { m1_cmd: "", m2_cmd: "", m3_cmd: "" };
 
   function applyMacrosToUI(data) {
@@ -539,8 +612,17 @@
   }
 
   function runMacro(id) {
-      const cmd = machineMacros['m' + id + '_cmd'];
-      if(cmd && cmd !== "") fetch('/api/jog?cmd=' + encodeURIComponent(cmd));
+      const cmdText = machineMacros['m' + id + '_cmd'];
+      if(cmdText && cmdText !== "") {
+          const lines = cmdText.split('\n');
+          
+          lines.forEach(line => {
+              let trimmedLine = line.trim();
+              if (trimmedLine !== "") {
+                  sendRaw(trimmedLine); 
+              }
+          });
+      }
   }
 
   // WYSWIETLANIE SUROWEGO CONFIG.JSON
@@ -551,11 +633,9 @@
       .then(response => response.text())
       .then(text => {
         try {
-            // Próbujemy sformatować JSON, żeby był ładny i czytelny (wcięcia 4 spacje)
             const parsed = JSON.parse(text);
             display.value = JSON.stringify(parsed, null, 4);
         } catch(e) {
-            // Jeśli z jakiegoś powodu nie jest to poprawny JSON, wyświetlamy surowy tekst
             display.value = text;
         }
       })

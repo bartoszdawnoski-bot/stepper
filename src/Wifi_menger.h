@@ -13,7 +13,9 @@
 #include "packets.h"
 #include <LittleFS.h>     
 #include <ArduinoJson.h>
-
+#include "stepper.h"
+#include <SD.h>
+#include "conf.h"
 /**
  * @brief Definicja typu funkcji zwrotnej (callback) do obsługi wiadomości WebSocket.
  */
@@ -144,6 +146,8 @@ public:
     int get_active_clients();
 
     void set_info(String version, String date, String features);
+
+    bool handle_sd_read(String path);
 };
 
 #endif

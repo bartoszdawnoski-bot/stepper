@@ -10,7 +10,7 @@
 #include "stepper.h"
 #include "Wifi_menger.h"
 #include "conf.h"
-
+extern void web_log(String msg);
 
 /**
  * @class GCode

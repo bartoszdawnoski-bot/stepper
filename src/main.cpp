@@ -39,6 +39,11 @@ processedStatus ackQueue[BUFFER_SIZE];
 volatile int ackhead = 0; // dla core 1
 volatile int acktail = 0; // dla core 2
 
+
+char logQueue[16][128]; // Pamięć na 16 logów (
+volatile int logHead = 0;
+volatile int logTail = 0;
+
 // funkcje pomocnicze dal bufforow
 // Sprawdza, czy następny krok głowy nie nadpisze ogona
 bool is_cmd_full() { return ((cmdhead + 1) % BUFFER_SIZE) == cmdtail; }
@@ -63,6 +68,19 @@ WiFiMenager wifi;
 //Mutex
 mutex_t cmd_mutex;
 mutex_t ack_mutex;
+mutex_t log_mutex;
+
+void web_log(String msg) {
+    mutex_enter_blocking(&log_mutex);
+    int nextHead = (logHead + 1) % 16;
+    if(nextHead != logTail) 
+    { 
+        strncpy(logQueue[logHead], msg.c_str(), 127);
+        logQueue[logHead][127] = '\0';
+        logHead = nextHead;
+    }
+    mutex_exit(&log_mutex);
+}
 
 void e_stop_isr()
 {
@@ -103,10 +121,7 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
             float val = atof((const char*)payload + 9) / 100.0f; 
             Stepper::set_global_override(val);
             
-            if(Serial) { 
-                Serial.print("[WIFI] Zmieniono Override na: "); 
-                Serial.println(val); 
-            }
+            web_log(String("[WIFI] Zmieniono Override na: ") + val);
             return; 
         }
 
@@ -135,7 +150,7 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
             }
             mutex_exit(&cmd_mutex);
             
-            if(Serial) { Serial.print("[WIFI] Otrzymano G-CODE: "); Serial.println(packet.Gcode); }
+            web_log(String("[WIFI] Otrzymano G-CODE: ") + packet.Gcode);
             return;
         }
 
@@ -143,11 +158,8 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
         DeserializationError error = deserializeJson(doc, payload, length);
 
         if (error) {
-            if(Serial)
-            {
-                Serial.print(F("deserializeJson() failed: "));
-                Serial.println(error.f_str());
-            }
+        
+            web_log(String("Błąd deserializacji"));
             return; 
         }
 
@@ -173,7 +185,7 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
         }
         else
         {
-             if(Serial) Serial.println("[Core 1] CMD Buffer Full");
+            web_log(String("[Core 1] Bufor CMD jest pełny"));
         }
     }
 }
@@ -182,6 +194,7 @@ void setup()
 {
     mutex_init(&cmd_mutex);
     mutex_init(&ack_mutex);
+    mutex_init(&log_mutex);
 
     Serial.begin(115200);
     while(!wifi.isCon()){delay(10);} // Oczekiwanie na monitor portu szeregowego - do wyzucenia w wersji koncowej
@@ -214,10 +227,12 @@ void setup()
         motorB.initTMC(CS_PIN_B, R_SENSE_TMC_PRO, CURRENT_B); 
         motorC.initTMC(CS_PIN_C, R_SENSE_TMC_PRO, CURRENT_C);
         Serial.println("[Core 0] Steppers are ready");
+        web_log("[Core 0] Silniki gotowe");
     }
     else
     {
         Serial.println("[Core 0] Restart the winder or check the motors");
+        web_log("[Core 0] Zrestartuj nawijarkę albo sprawdź silniki");
         while(true) { delay(1); } // Zatrzymaj program w przypadku błędu
     }
     motorA.setEnable(true);
@@ -243,17 +258,20 @@ void setup1()
     float sx = 200.0f, sy = 200.0f, maxz = 200.0f ,st_mm = 200.0f, st_rot = 200.0f;
     if (wifi.load_config(sx, sy, maxz, st_mm, st_rot)) 
     {
-        Serial.println("[Config] Settings loaded from config.json");    
+        Serial.println("[Config] Settings loaded from config.json");   
+        web_log("[Config] Załadowano ustawienia z pliku Config.json"); 
         procesor.update_settings(sx, sy, maxz, st_mm, st_rot);
     } 
     else 
     {
         Serial.println("[Config] Failed to load config, using defaults.");
+        web_log("[Config] Błąd przy ładowniu configuracji"); 
     }
 
     // Rejestracja funkcji callback do obsługi przychodzących danych
     wifi.set_callback(on_data_received);
     Serial.println("[Core 1] WIFI ready");
+    web_log("[Config] Błąd przy ładowniu konfiguracji"); 
     wifi.set_info(FIRMWARE_VERSION, FIRMWARE_DATE, FIRMWARE_FEATURES);
 }
 
@@ -266,7 +284,8 @@ void loop()
         motorC.e_stop();
         estop_handled = true;
         
-        Serial.println("[MAIN] E-STOP ACTIVATED! Motors disabled.");
+        Serial.println("[MAIN] E-STOP ACTIVATED! Motors disabled");
+        web_log("[MAIN] E-STOP AKTYWNY");
     }
 
     if(digitalRead(E_STOP_PIN) == LOW && procesor.is_em_stopped() && estop_handled) 
@@ -275,6 +294,7 @@ void loop()
         if(digitalRead(E_STOP_PIN) == LOW) 
         {
             Serial.println("[MAIN] E-STOP RELEASED. Ready.");
+            web_log("[MAIN] E-STOP DEAKTYWOWANY");
             procesor.em_stopp_f(); 
             e_stop_triggered_isr = false;
             estop_handled = false;
@@ -343,6 +363,7 @@ void loop1()
         {
             procesor.update_settings(sx, sy, maxz, st_mm, st_rot);
             Serial.println("[Config] Settings loaded from config.json");
+            web_log("[Config] Załadowano ustawienia z pliku Config.json");
         }
         
         wifi.config_changed = false;
@@ -413,6 +434,7 @@ void loop1()
         if(!success) 
         {
             if(Serial) Serial.println("[WIFI] TX Buffer Full");
+            web_log("[WIFI] TX Bufor jest pełny");
             break;
         } 
 
@@ -420,7 +442,21 @@ void loop1()
         acktail = (acktail + 1) % BUFFER_SIZE;
         processed_count++;
         mutex_exit(&ack_mutex);
-        
+
+        while(logTail != logHead) {
+            char msg[128];
+            mutex_enter_blocking(&log_mutex);
+            strcpy(msg, logQueue[logTail]);
+            logTail = (logTail + 1) % 16;
+            mutex_exit(&log_mutex);
+            
+            StaticJsonDocument<256> logDoc;
+            logDoc["log"] = msg;
+            char logBuffer[256];
+            serializeJson(logDoc, logBuffer);
+            wifi.broadcast_telemetry(logBuffer);
+        }
+
         yield();
     }
 }

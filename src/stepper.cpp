@@ -439,10 +439,9 @@ void Stepper::setSpeed(float steps_per_second)
     // Zabezpieczenie przed dzieleniem przez zero i ujemnymi wartościami
     if(steps_per_second <= 0.01f) return;
     
-    uint32_t delay_cycles = (uint32_t)(2000000.0f / steps_per_second);
-
-    if (delay_cycles > 5) delay_cycles -= 10;
-    if (delay_cycles < 50) delay_cycles = 50;
+    int32_t delay_cycles = (int32_t)(2000000.0f / steps_per_second);
+    delay_cycles -= 10;
+    if (delay_cycles < 2) delay_cycles = 2; 
 
     pio_sm_set_enabled(PIO_instance, SM_speed, false);
     // Wyczyść FIFO 

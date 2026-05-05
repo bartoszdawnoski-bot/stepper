@@ -42,12 +42,14 @@ void GCode::execute_parse()
         int num = (int)parser.GetWordValue('M');
         if(num == 18)
         {
+            web_log("[GCODE] Silniki wyłączone");
             stepperX->setEnable(false);
             stepperY->setEnable(false);
             stepperZ->setEnable(false);
         }
         if(num == 84)
         {
+            web_log("[GCODE] Silniki włączone");
             stepperX->setEnable(true);
             stepperY->setEnable(true);
             stepperZ->setEnable(true);
@@ -57,10 +59,11 @@ void GCode::execute_parse()
     if(parser.HasWord('G'))
     {
         int num = (int)parser.GetWordValue('G');
-        if(num == 90) { relative_mode = false; return; }
-        if(num == 91) { relative_mode = true;  return;}
+        if(num == 90) { relative_mode = false; return; web_log("[GCODE] tryb realtywny wyłączony");}
+        if(num == 91) { relative_mode = true;  return; web_log("[GCODE] tryb relatywny wyłącozny");}
         if(num == 29)
         {
+            web_log("[GCODE] Ustawiono logiczne zero");
             last_stepX = 0; 
             last_stepY = 0; 
             current_pos_x = 0.0f; 
@@ -71,6 +74,7 @@ void GCode::execute_parse()
         {
             move_complete();
             if(Serial) Serial.println("[GCODE] Homing procedure started");
+            web_log("[GCODE] Start procedury");
 
             digitalWrite(TRANSOPT_PIN_A, HIGH);
             stepperX->addMove(-1000000.0, factor.v_max_x * 0.5f);
@@ -89,16 +93,19 @@ void GCode::execute_parse()
             current_pos_x = 0;
             current_pos_y = 0;
             if(Serial) Serial.println("[GCODE] Homing Done");
+            web_log("[GCODE] Punkt zero ustawiony");
             return;
         }
         if(num == 30)
         {
             move_complete();
-            if(Serial) Serial.println("[GCODE] Returning to software home (0,0,0)...");
+            if(Serial) Serial.println("[GCODE] Returning to software home (0,0)");
+            web_log("[GCODE] Powrot do zera");
 
             stepperX->setSpeed(factor.v_max_x * 0.5);
             stepperY->setSpeed(factor.v_max_y * 0.5);
             stepperX->zero();        
+            stepperY->zero();
             move_complete();
 
             current_pos_x = 0;
@@ -139,8 +146,7 @@ void GCode::execute_parse()
             {
                 float val = parser.GetWordValue('Z');
                 uint16_t current_ma = (uint16_t)constrain(val, 0, factor.max_current_Z);
-                stepperZ->set_current(current_ma);
-
+                if (current_ma < 10 && stepperZ != nullptr) stepperZ->setEnable(false); 
                 if (stepperZ != nullptr) {
                     stepperZ->set_current(current_ma);
                 }
@@ -293,7 +299,6 @@ void GCode::update_settings(float sx, float sy, float maxZ, float st_mm, float s
     factor.steps_perMM_x = st_mm;
     factor.steps_per_rotation_c = st_rot;
     factor.max_current_Z = maxZ;
-    stepperZ->set_current(maxZ);
     Serial.print("Max current = "); 
     Serial.println(maxZ);
 }
