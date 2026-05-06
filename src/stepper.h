@@ -2,6 +2,7 @@
  * @file stepper.h
  * @brief Wysokowydajny sterownik silnika krokowego używający Raspberry Pi Pico PIO.
  */
+#pragma once
 #define STEPPER_H
 #ifdef STEPPER_H
 
