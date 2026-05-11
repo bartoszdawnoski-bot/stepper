@@ -8,7 +8,7 @@
 
 #include <Arduino.h>
 #include <hardware/pio.h>
-#include <TMCStepper.h>
+#include "IMotorDriver.h"
 #include <SPI.h>
 #include "conf.h"
 #include "pico/platform.h"
@@ -50,7 +50,7 @@ public:
 /** @brief Struktura przechowująca parametry jednego ruchu */    
 struct MotionCommand {
     long steps;
-    float speed;
+    uint32_t delay_cycles;
     bool is_sync_move;
     float sync_multiplier;
 };
@@ -62,8 +62,7 @@ private:
     Program Program_select;
 
     //obsługa sterownika TMC
-    TMC5160Stepper* tmc_driver = nullptr;
-    bool use_tmc = false;
+    IMotorDriver* external_driver = nullptr;
 
     // Zmienne wewnętrzne PIO i przerwań
     irq_num_rp2350 IRQ;
@@ -95,7 +94,7 @@ private:
     float actual_speed_multiplier = 0.1f;
     float accel_speed = 0.1f;
     int max_steps;
-    float steps_speed;
+    uint32_t active_delay_cycles;
     int steps_direction; 
     
     volatile MotionCommand motionBuffer[MOTION_BUFFER_SIZE];
@@ -107,7 +106,7 @@ private:
     void __not_in_flash_func(PIO_ISR_Handler)();
 
     /** @brief Funkcja ładująca dane fizycznie do rejestrów PIO */
-    void __not_in_flash_func(loadToPIO)(long steps, float speed);
+    void __not_in_flash_func(loadToPIO)(long steps, uint32_t delay_cycles);
 
 public:
     static mutex_t spi_mutex;
@@ -135,13 +134,10 @@ public:
      */
     bool init();
 
-    /** * @brief Inicjalizuje sterownik TMC po SPI 
-     * @param cs_pin Pin Chip Select
-     * @param r_sense Rezystor pomiarowy (zwykle 0.075)
-     * @param current_ma Prąd w mA
+    /**
+     * @brief Przypisuje sterownik do programu 
      */
-    void initTMC(uint16_t cs, float r_sense, uint16_t current_ma);
-
+    void attachDriver(IMotorDriver* driver);
     /**
      * @brief Dodaje ruch do bufora zamiast od razu wykonywać
      * @param steps Kroki do wykonania
@@ -158,23 +154,11 @@ public:
     bool isBufferEmpty();
 
     /**
-     * @brief Ustawia prędkość silnika.
-     * @param steps_per_second Prędkość w krokach na sekundę.
-     */
-    void setSpeed(float steps_per_second);
-
-    /**
      * @brief Planuje wykonanie zadanej liczby kroków.
      * Nie uruchamia ruchu natychmiast - wymagane wywołanie moveSteps().
      * @param steps Liczba kroków (dodatnia lub ujemna określa kierunek).
      */
     void setSteps(long double steps);
-
-    /**
-     * @brief Wykonuje ruch natychmiastowo (tylko dla pojedynczego silnika).
-     * @deprecated Zaleca się używanie setSteps() + moveSteps() dla synchronizacji.
-     */
-    void moveThis(long double steps);
 
     // Statyczne handlery przerwań (wymagane przez API C SDK Pico)
     static void __not_in_flash_func (PIO0_ISR_handler_static)();
@@ -206,7 +190,7 @@ public:
     bool is_overheated();
 
     /** @brief Wraca do pozycji zerowej (programowej). */
-    void zero();
+    void zero(float speed);
 
     /** @brief Ustawia aktualną pozycję jako 0. */
     void setZero();

@@ -102,10 +102,8 @@ void GCode::execute_parse()
             if(Serial) Serial.println("[GCODE] Returning to software home (0,0)");
             web_log("[GCODE] Powrot do zera");
 
-            stepperX->setSpeed(factor.v_max_x * 0.5);
-            stepperY->setSpeed(factor.v_max_y * 0.5);
-            stepperX->zero();        
-            stepperY->zero();
+            stepperX->zero(factor.v_max_x * 0.5f);        
+            stepperY->zero(factor.v_max_y * 0.5f);
             move_complete();
 
             current_pos_x = 0;
@@ -287,8 +285,8 @@ void GCode::move_complete()
 {
     while((stepperX->moving() || !stepperX->isBufferEmpty()) || (stepperY->moving() || !stepperY->isBufferEmpty()))
     {
-       if(this->e_stop) return;
-        delay(1);
+        if(this->e_stop) return;
+        tight_loop_contents();
     }
 
 }

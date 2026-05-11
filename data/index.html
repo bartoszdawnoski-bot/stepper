@@ -425,6 +425,9 @@
   let lastPosY = 0;
   let lastTime = Date.now();
   let currentRpm = 0;
+  let smoothedRpm = 0;
+  let smoothedVelX = 0;
+  const SMOOTH = 0.15;
   const MAX_POINTS = 60; // Ile punktów pomiarowych wstecz pamiętamy
   let chartDataX = new Array(MAX_POINTS).fill(0);
   let chartDataY = new Array(MAX_POINTS).fill(0);
@@ -448,7 +451,10 @@
 
         if(data.msgType === 16) { 
           if(data.posX !== undefined) document.getElementById('val-posX').innerText = data.posX.toFixed(2);
-          if(data.velX !== undefined) document.getElementById('val-velX').innerText = (data.velX / 1000).toFixed(4) + " m/s";
+          if(data.velX !== undefined) {
+              smoothedVelX = (SMOOTH * data.velX) + ((1 - SMOOTH) * smoothedVelX);
+              document.getElementById('val-velX').innerText = (smoothedVelX / 1000).toFixed(4) + " m/s";
+          }
           
           let now = Date.now();
           let dt = (now - lastTime) / 1000.0;
@@ -464,7 +470,9 @@
              }
              lastPosY = data.posY;
              lastTime = now;
+             smoothedRpm = (SMOOTH * currentRpm) + ((1 - SMOOTH) * smoothedRpm);
           }
+
           
           if(data.rpm !== undefined) currentRpm = data.rpm;
           document.getElementById('val-rpm').innerText = Math.abs(currentRpm).toFixed(1) + " RPM";
@@ -498,16 +506,18 @@
           }
           
           const radius = parseFloat(document.getElementById('spool-radius').value) || 0;
-          const wireMs = (Math.abs(currentRpm) / 60) * (2 * Math.PI * radius / 1000);
+          const wireMs = (Math.abs(smoothedRpm) / 60) * (2 * Math.PI * radius / 1000);
           document.getElementById('val-wire-ms').innerText = wireMs.toFixed(4) + " m/s";
           
           if(data.loadX !== undefined) {
+             let rawX = isRunning ? data.loadX : 1023;
              updateLoad('loadX', data.loadX);
              let pctX = ((1023 - Math.max(0, Math.min(1023, data.loadX))) / 1023) * 100;
              chartDataX.push(pctX);
              chartDataX.shift(); 
           }
           if(data.loadY !== undefined) {
+             let rawY = isRunning ? data.loadY : 1023;
              updateLoad('loadY', data.loadY);
              let pctY = ((1023 - Math.max(0, Math.min(1023, data.loadY))) / 1023) * 100;
              chartDataY.push(pctY);

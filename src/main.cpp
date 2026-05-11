@@ -6,6 +6,7 @@
 #include <SPI.h>
 #include <malloc.h>
 #include "pico/mutex.h"
+#include "TMC5160_Adapter.h"
 
 #define FIRMWARE_VERSION "v1.1.0"
 #define FIRMWARE_DATE __DATE__ " " __TIME__ 
@@ -26,6 +27,7 @@ float last_posX = 0;
 volatile bool e_stop_triggered_isr = false;
 static bool estop_handled = false;
 static bool stop_sent = false; 
+static unsigned long estop_release_timer = 0;
 
 // ________PAMIĘĆ WSPÓLNA________
 
@@ -59,6 +61,10 @@ Stepper motorA(PIO_SELECT_0, STEP_PIN_1, DIR_PIN_1, ENABLE_PIN_1 , HOLD_PIN_1);
 Stepper motorB(PIO_SELECT_1, STEP_PIN_2, DIR_PIN_2, ENABLE_PIN_2 ,HOLD_PIN_2);
 Stepper motorC(PIO_SELECT_2, STEP_PIN_3, DIR_PIN_3, ENABLE_PIN_3 ,HOLD_PIN_3);
 
+TMC5160_Adapter adapterA(CS_PIN_A, R_SENSE_TMC_PLUS);
+TMC5160_Adapter adapterB(CS_PIN_B, R_SENSE_TMC_PRO);
+TMC5160_Adapter adapterC(CS_PIN_C, R_SENSE_TMC_PRO);
+
 // Procesor G-Code sterujący silnikami
 GCode procesor(&motorA, &motorB, &motorC);
 
@@ -84,8 +90,6 @@ void web_log(String msg) {
 
 void e_stop_isr()
 {
-    delayMicroseconds(500);
-
     if(digitalRead(E_STOP_PIN) == LOW) return;
     digitalWrite(ENABLE_PIN_1, HIGH);
     digitalWrite(ENABLE_PIN_2, HIGH);
@@ -123,6 +127,14 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
             
             web_log(String("[WIFI] Zmieniono Override na: ") + val);
             return; 
+        }
+
+        if (length == 5 && strncmp((const char*)payload, "ABORT", 5) == 0) 
+        {
+            e_stop_triggered_isr = true; 
+            procesor.em_stopp();
+            web_log("[WIFI] Zatrzymano awaryjnie z panelu WWW!");
+            return;
         }
 
         if (payload[0] == 'G' || payload[0] == 'M') 
@@ -220,12 +232,16 @@ void setup()
     pinMode(E_STOP_PIN, INPUT_PULLDOWN);
     attachInterrupt(digitalPinToInterrupt(E_STOP_PIN), e_stop_isr, RISING);
     // Inicjalizacja silników
+    motorA.attachDriver(&adapterA);
+    motorB.attachDriver(&adapterB);
+    motorC.attachDriver(&adapterC);
+
     if(motorA.init() && motorB.init() && motorC.init())
     {
         // Inicjalizacja sterowników
-        motorA.initTMC(CS_PIN_A, R_SENSE_TMC_PLUS, CURRENT_A);
-        motorB.initTMC(CS_PIN_B, R_SENSE_TMC_PRO, CURRENT_B); 
-        motorC.initTMC(CS_PIN_C, R_SENSE_TMC_PRO, CURRENT_C);
+        adapterA.init(CURRENT_A);
+        adapterB.init(CURRENT_B); 
+        adapterC.init(CURRENT_C);
         Serial.println("[Core 0] Steppers are ready");
         web_log("[Core 0] Silniki gotowe");
     }
@@ -284,20 +300,34 @@ void loop()
         motorC.e_stop();
         estop_handled = true;
         
+        mutex_enter_blocking(&cmd_mutex);
+        cmdtail = cmdhead; 
+        mutex_exit(&cmd_mutex);
+
         Serial.println("[MAIN] E-STOP ACTIVATED! Motors disabled");
         web_log("[MAIN] E-STOP AKTYWNY");
     }
 
-    if(digitalRead(E_STOP_PIN) == LOW && procesor.is_em_stopped() && estop_handled) 
+    if(procesor.is_em_stopped() && estop_handled) 
     {
-        delay(50); 
         if(digitalRead(E_STOP_PIN) == LOW) 
         {
-            Serial.println("[MAIN] E-STOP RELEASED. Ready.");
-            web_log("[MAIN] E-STOP DEAKTYWOWANY");
-            procesor.em_stopp_f(); 
-            e_stop_triggered_isr = false;
-            estop_handled = false;
+            if (estop_release_timer == 0) {
+                estop_release_timer = millis(); 
+            } 
+            else if (millis() - estop_release_timer > 100) 
+            {
+                Serial.println("[MAIN] E-STOP RELEASED. Ready.");
+                web_log("[MAIN] E-STOP DEAKTYWOWANY");
+                procesor.em_stopp_f(); 
+                e_stop_triggered_isr = false;
+                estop_handled = false;
+                estop_release_timer = 0;
+            }
+        }
+        else
+        {
+            estop_release_timer = 0; 
         }
     }
 
