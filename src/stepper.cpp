@@ -701,7 +701,7 @@ int Stepper::getPosition()
 
 uint16_t Stepper::get_load()
 {
-    if(external_driver != nullptr || spi_mutex_initialized) return 0;
+    if(external_driver == nullptr || !spi_mutex_initialized) return 0;
     mutex_enter_blocking(&spi_mutex);
     uint16_t res = external_driver->get_load();
     mutex_exit(&spi_mutex);
@@ -710,7 +710,7 @@ uint16_t Stepper::get_load()
 
 uint32_t Stepper::get_status()
 {
-    if(external_driver != nullptr || spi_mutex_initialized) return 0;
+    if(external_driver == nullptr || !spi_mutex_initialized) return 0;
     mutex_enter_blocking(&spi_mutex);
     uint32_t res = external_driver->get_status(); 
     mutex_exit(&spi_mutex);
@@ -719,7 +719,7 @@ uint32_t Stepper::get_status()
 
 bool Stepper::is_overheated()
 {
-    if(external_driver != nullptr || spi_mutex_initialized) return 0;
+    if(external_driver == nullptr || !spi_mutex_initialized) return false;
     mutex_enter_blocking(&spi_mutex);
     bool res = external_driver->is_overheated();
     mutex_exit(&spi_mutex);
@@ -769,7 +769,7 @@ void Stepper::set_current(uint16_t ma)
         mutex_enter_blocking(&spi_mutex);
         if(ma > this->max_current) ma = this->max_current;
         external_driver->set_current(ma);
-        actuall_current = ma;
+        actuall_current = external_driver->get_actual_current();
         mutex_exit(&spi_mutex);
     }
 }
@@ -817,6 +817,11 @@ bool Stepper::isEnabled()
 
 float Stepper::get_actuall_current()
 {
+    if (external_driver != nullptr) 
+    {
+        return external_driver->get_actual_current();
+    }
+    
     return this->actuall_current;
 }
 

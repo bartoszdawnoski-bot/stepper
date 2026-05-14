@@ -208,6 +208,9 @@ void setup()
     mutex_init(&ack_mutex);
     mutex_init(&log_mutex);
 
+    mutex_init(&Stepper::spi_mutex);
+    Stepper::spi_mutex_initialized = true;
+
     Serial.begin(115200);
     while(!wifi.isCon()){delay(10);} // Oczekiwanie na monitor portu szeregowego - do wyzucenia w wersji koncowej
     delay(2000); 
@@ -238,12 +241,23 @@ void setup()
 
     if(motorA.init() && motorB.init() && motorC.init())
     {
+        mutex_enter_blocking(&Stepper::spi_mutex);
         // Inicjalizacja sterowników
-        adapterA.init(CURRENT_A);
-        adapterB.init(CURRENT_B); 
-        adapterC.init(CURRENT_C);
-        Serial.println("[Core 0] Steppers are ready");
-        web_log("[Core 0] Silniki gotowe");
+        if(adapterA.init(CURRENT_A) && adapterB.init(CURRENT_B) && adapterC.init(CURRENT_C))
+        {
+            motorA.set_microSteps_mode(Stepper::mode_16);
+            motorB.set_microSteps_mode(Stepper::mode_16);
+            motorC.set_microSteps_mode(Stepper::mode_16);
+            Serial.println("[Core 0] Steppers are ready");
+            web_log("[Core 0] Silniki gotowe");
+        }
+        else
+        {
+            Serial.println("[Core 0] Steppers are NOT ready");
+            web_log("[Core 0] Silniki nie wystartowały");
+        }
+
+        mutex_exit(&Stepper::spi_mutex);
     }
     else
     {
@@ -365,6 +379,11 @@ void loop()
             mutex_exit(&ack_mutex);
         }
     }
+
+    if(!has_task)
+    {
+        delay(1);
+    }
 }
 
 void loop1() 
@@ -465,7 +484,6 @@ void loop1()
         {
             if(Serial) Serial.println("[WIFI] TX Buffer Full");
             web_log("[WIFI] TX Bufor jest pełny");
-            break;
         } 
 
         mutex_enter_blocking(&ack_mutex);
@@ -473,20 +491,23 @@ void loop1()
         processed_count++;
         mutex_exit(&ack_mutex);
 
-        while(logTail != logHead) {
-            char msg[128];
-            mutex_enter_blocking(&log_mutex);
-            strcpy(msg, logQueue[logTail]);
-            logTail = (logTail + 1) % 16;
-            mutex_exit(&log_mutex);
-            
-            StaticJsonDocument<256> logDoc;
-            logDoc["log"] = msg;
-            char logBuffer[256];
-            serializeJson(logDoc, logBuffer);
-            wifi.broadcast_telemetry(logBuffer);
-        }
-
-        yield();
+        
     }
+
+    while(logTail != logHead)
+    {
+        char msg[128];
+        mutex_enter_blocking(&log_mutex);
+        strcpy(msg, logQueue[logTail]);
+        logTail = (logTail + 1) % 16;
+        mutex_exit(&log_mutex);
+            
+        StaticJsonDocument<256> logDoc;
+        logDoc["log"] = msg;
+        char logBuffer[256];
+        serializeJson(logDoc, logBuffer);
+        wifi.broadcast_telemetry(logBuffer);
+    }
+    
+    yield();
 }
