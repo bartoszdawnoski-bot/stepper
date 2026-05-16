@@ -9,14 +9,15 @@ private:
     uint16_t cs_pin;
     float r_sense;
     uint16_t actual_current;
+    float hold_multi;
 
 public:
-    TMC5160_Adapter(uint16_t cs, float rs) : 
+    TMC5160_Adapter(uint16_t cs, float rs, float hm) : 
     cs_pin(cs), 
     r_sense(rs), 
-    actual_current(0) 
-    {
-    }
+    actual_current(0),
+    hold_multi(hm)
+    {}
 
     bool init(uint16_t current_ma) override 
     {
@@ -26,7 +27,7 @@ public:
         
         driver->begin();
         driver->toff(5);
-        driver->rms_current(current_ma);
+        driver->rms_current(current_ma, hold_multi);
         this->actual_current = current_ma;
         driver->microsteps(16);
         driver->en_pwm_mode(true); // stealthChop
@@ -39,7 +40,7 @@ public:
     void set_current(uint16_t ma) override 
     { 
         if(driver) {
-            driver->rms_current(ma); 
+            driver->rms_current(ma, hold_multi); 
             this->actual_current = ma;
         }
     }

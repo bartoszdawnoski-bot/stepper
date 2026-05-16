@@ -726,7 +726,7 @@ bool Stepper::is_overheated()
     return res;
 }
 
-bool Stepper::get_tmc()
+bool Stepper::get_driver()
 {
     return (this->external_driver != nullptr);
 }

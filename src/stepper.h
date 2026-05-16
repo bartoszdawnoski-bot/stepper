@@ -14,7 +14,7 @@
 #include "pico/platform.h"
 
 #define LENGHT 2 ///< Maksymalna liczba silników na jedną instancję PIO.
-#define MOTION_BUFFER_SIZE 32 ///< Rozmiar bufora ruchów dla jednego silnika
+#define MOTION_BUFFER_SIZE 128 ///< Rozmiar bufora ruchów dla jednego silnika
 
 /**
  * @class Stepper
@@ -178,7 +178,7 @@ public:
     bool setEnable(bool set);
     int getPosition();
     uint get_microsteps();
-    bool get_tmc();
+    bool get_driver();
 
     /** @brief Zwraca obciążenie silnika (StallGuard: 0=max obciążenie, >0 luz) */
     uint16_t get_load();
@@ -212,6 +212,7 @@ public:
     /** @brief Zwraca stan zasilania silnika (true = włączony) */
     bool isEnabled();
 
+    /** @brief Zwraca aktualny prąd silnika */
     float get_actuall_current();
 };
 

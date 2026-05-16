@@ -767,3 +767,5 @@ void WiFiMenager::set_info(String version, String date, String features)
 }
 
 int WiFiMenager::get_active_clients() { return active_clients; }
+
+void WiFiMenager::reset_clients() {this->active_clients = 0;}

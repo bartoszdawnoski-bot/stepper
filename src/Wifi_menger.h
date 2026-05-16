@@ -148,6 +148,8 @@ public:
     void set_info(String version, String date, String features);
 
     bool handle_sd_read(String path);
+
+    void reset_clients(); 
 };
 
 #endif
