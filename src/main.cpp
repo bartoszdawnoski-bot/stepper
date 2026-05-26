@@ -9,7 +9,7 @@
 #include "TMC5160_Adapter.h"
 #include "hardware/watchdog.h"
 
-#define FIRMWARE_VERSION "v1.1.0"
+#define FIRMWARE_VERSION "v1.3.0"
 #define FIRMWARE_DATE __DATE__ " " __TIME__ 
 #define FIRMWARE_AUTHOR "Bartosz Danowski"
 #define FIRMWARE_FEATURES "TMC5160 SPI, PIO Steppers, WebSockets, G-Code Parser"
@@ -223,7 +223,7 @@ void setup()
         Serial.println("[WATCHDOG] WARNING: the machine has been emergency restarted");
         web_log("[WATCHDOG] WARNING: maszyan zostałą zrestartowana");
     }
-    watchdog_enable(5000, 1);
+    watchdog_enable(10000, 1);
 
     Serial.println("\n=============================================");
     Serial.println("       " FIRMWARE_AUTHOR "       ");
@@ -244,8 +244,6 @@ void setup()
     pinMode(TRANSOPT_PIN_B, OUTPUT);
     pinMode(E_STOP_PIN, INPUT_PULLDOWN);
     attachInterrupt(digitalPinToInterrupt(E_STOP_PIN), e_stop_isr, RISING);
-    digitalWrite(TRANSOPT_PIN_A, HIGH); // wlaczona na stale dla testu 
-    digitalWrite(TRANSOPT_PIN_B, HIGH); 
     // Inicjalizacja silników
     motorA.attachDriver(&adapterA);
     motorB.attachDriver(&adapterB);
@@ -284,6 +282,7 @@ void setup()
 // CORE 1 KOMUNIKACJA WIFI
 void setup1()
 {
+    last_core1_response = millis();
     int reconnect_counter = 0;
     // Próba połączenia z WiFi i uruchomienia mDNS
     while(!wifi.init() && reconnect_counter <= 8) 
@@ -319,7 +318,7 @@ void setup1()
 
 void loop() 
 {   
-    if (millis() - last_core1_response > 5000)
+    /*if (millis() - last_core1_response > 5000)
     {
         Serial.println("[WATCHDOG] Core 1 restart");
         web_log("[WATCHDOG] Restart Core 1");
@@ -327,7 +326,7 @@ void loop()
         wifi.reset_clients();
         multicore_launch_core1(setup1);
         last_core1_response = millis();
-    } 
+    } */
 
     if(motorA.is_overheated() || motorB.is_overheated() || motorC.is_overheated())
     {
@@ -435,7 +434,7 @@ void loop1()
     }
     // test krancowiki X
     static unsigned long last_print = 0;
-    if (millis() - last_print > 500) {
+    if (millis() - last_print > 500 && digitalRead(HOLD_PIN_1) == HIGH) {
         Serial.print("Stan krancowki X: ");
         Serial.println(digitalRead(HOLD_PIN_1)); 
         last_print = millis();
@@ -443,7 +442,7 @@ void loop1()
 
         // test krancowiki Y
     static unsigned long last_print2 = 0;
-    if (millis() - last_print2 > 500) {
+    if (millis() - last_print2 > 500 && digitalRead(HOLD_PIN_2) == HIGH) {
         Serial.print("Stan krancowki Y: ");
         Serial.println(digitalRead(HOLD_PIN_2)); 
         last_print2 = millis();

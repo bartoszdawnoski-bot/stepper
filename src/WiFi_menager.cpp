@@ -15,7 +15,7 @@ R"rawliteral(
         </head>
         <body>
             <h2>Konfiguracja WiFi</h2>
-            <form action="save" method="POST">
+            <form action="api/wifi" method="POST">
             <input type="text" name="ssid" placeholder="Nazwa sieci (SSID)" required><br>
             <input type="password" name="pass" placeholder="Haslo (zostaw puste jesli brak)"><br>
             <button type="submit">Zapisz i Restartuj</button>
@@ -84,14 +84,28 @@ void WiFiMenager::handle_config_post()
 
     String body = server.arg("plain");
 
-    StaticJsonDocument<512> doc;
-    DeserializationError error = deserializeJson(doc, body);
+    StaticJsonDocument<512> new_data;
+    DeserializationError error = deserializeJson(new_data, body);
 
     if (error) 
     {
         if(Serial) Serial.println("[Config] JSON parsing error");
         server.send(400, "text/plain", "Invalid JSON");
         return;
+    }
+
+    StaticJsonDocument<1024> full_config;
+    if (LittleFS.exists("/config.json")) 
+    {
+        File file_read = LittleFS.open("/config.json", "r");
+        deserializeJson(full_config, file_read);
+        file_read.close();
+    }
+
+    JsonObject new_obj = new_data.as<JsonObject>();
+    for (JsonPair kv : new_obj) 
+    {
+        full_config[kv.key()] = kv.value();
     }
 
     File file = LittleFS.open("/config.json", "w");
@@ -101,7 +115,7 @@ void WiFiMenager::handle_config_post()
         return;
     }
 
-    if (serializeJson(doc, file) == 0) 
+    if (serializeJson(full_config, file) == 0) 
     {
         server.send(500, "text/plain", "Failed to write to file");
     } 

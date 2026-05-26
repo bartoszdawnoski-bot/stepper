@@ -72,18 +72,22 @@ void GCode::execute_parse()
         }
         if(num == 28)
         {
+            if(num == 28)
+        {
             move_complete();
             if(Serial) Serial.println("[GCODE] Homing procedure started");
             web_log("[GCODE] Start procedury");
 
+            float speedX_steps = 5.0f * factor.steps_perMM_x * stepperX->get_microsteps();            
             digitalWrite(TRANSOPT_PIN_A, HIGH);
-            stepperX->addMove(-1000000.0, factor.v_max_x * 0.5f);
+            stepperX->addMove(-1000000.0 * stepperX->get_microsteps(), speedX_steps);
             Stepper::moveSteps();
             move_complete();
             digitalWrite(TRANSOPT_PIN_A, LOW);
 
+            float speedY_steps = 1.0f * factor.steps_per_rotation_c * stepperY->get_microsteps();
             digitalWrite(TRANSOPT_PIN_B, HIGH);
-            stepperY->addMove(-1000000.0, factor.v_max_y * 0.5f);
+            stepperY->addMove(-1000000.0 * stepperY->get_microsteps(), speedY_steps);
             Stepper::moveSteps();
             move_complete();
             digitalWrite(TRANSOPT_PIN_B, LOW);
@@ -95,6 +99,7 @@ void GCode::execute_parse()
             if(Serial) Serial.println("[GCODE] Homing Done");
             web_log("[GCODE] Punkt zero ustawiony");
             return;
+        }
         }
         if(num == 30)
         {
@@ -244,6 +249,7 @@ void GCode::execute_parse()
                 {
                     if(this->e_stop) return; 
                     Stepper::moveSteps();
+                    watchdog_update();
                     delay(1);
                 }
 
@@ -287,6 +293,7 @@ void GCode::move_complete()
     {
         if(this->e_stop) return;
         tight_loop_contents();
+        watchdog_update();
     }
 
 }
