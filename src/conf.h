@@ -38,6 +38,8 @@
 #define CURRENT_A           1000.0f //prad silnika X | 1000mA = 1A
 #define CURRENT_B           1000.0f //prad silnika Y  
 #define CURRENT_C           200.0f // prad silnika Z 
+#define CURRENT_MULTI_HOLD  0.3f 
+#define CURRENT_MULTI_BR    1.0f 
 
 //Piny do obsługi pozostałych elementów
 #define E_STOP_PIN          15

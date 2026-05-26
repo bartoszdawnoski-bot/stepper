@@ -94,7 +94,7 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold, 
 }
 
 // Konstruktor główny
-Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold, uint transopt)
+Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold)
 :PIO_instance(pio_instance),
  STEP_PIN(step),
  DIR_PIN(dir),
@@ -113,8 +113,7 @@ Stepper::Stepper(PIO pio_instance, uint step, uint dir, uint enable, uint hold, 
  micro_steps(1),
  position(0),
  remaining_steps(0),
- max_speed_chunk(0),
- TROPT_PIN(transopt)
+ max_speed_chunk(0)
 {   
     bool program1 = true, program2 = true;
 
@@ -306,51 +305,20 @@ bool Stepper::init()
     return true;
 }
 
-void Stepper::initTMC(uint16_t cs, float r_sense, uint16_t current_ma)
+void Stepper::attachDriver(IMotorDriver* driver) 
 {
-    this->CS_PIN = cs; 
-    this->tmc_driver = new TMC5160Stepper(this->CS_PIN, r_sense);
-   
+    this->external_driver = driver;
+    
     if (!spi_mutex_initialized) {
         mutex_init(&spi_mutex);
         spi_mutex_initialized = true;
     }
-   
-    this->tmc_driver->begin();
-    SPI.beginTransaction(
-            SPISettings(
-                4000000,
-                MSBFIRST,
-                SPI_MODE3
-            )
-        );
-
-    this->tmc_driver->toff(5);
-    this->tmc_driver->rms_current(current_ma);
-    this->actuall_current = current_ma;
-
-    this->tmc_driver->microsteps(16);
-    this->micro_steps = 16;
-
-    this->tmc_driver->en_pwm_mode(true);// stealthChop
-    this->tmc_driver->pwm_autoscale(true);
-
-    this->tmc_driver->sgt(10);
-
-    this->use_tmc = true;
-    if(Serial) Serial.println("[Stepper] TMC driver initialized");
-
 }
 
-void Stepper::loadToPIO(long steps, float speed) {
+void Stepper::loadToPIO(long steps, uint32_t delay_cycles) {
     digitalWrite(DIR_PIN, (steps >= 0) ? HIGH : LOW);
     this->futurePosition = (int)steps + this->position;
     
-    if(speed <= 0.01f) speed = 0.1f;
-    uint32_t delay_cycles = (uint32_t)(2000000.0f / speed);
-    if (delay_cycles > 5) delay_cycles -= 10;
-    if (delay_cycles < 50) delay_cycles = 50;
-
     pio_sm_set_enabled(PIO_instance, SM_speed, false);
     pio_sm_set_enabled(PIO_instance, SM_counter, false);
     
@@ -392,13 +360,18 @@ void Stepper::loadToPIO(long steps, float speed) {
 bool Stepper::addMove(long steps, float speed, bool is_sync, float multiplier)
 {
     if(!Enable) return false;
-    
+
     // Jeśli bufor pełny zwróć false 
     if(items >= MOTION_BUFFER_SIZE) return false;
 
+    if(speed <= 0.01f) speed = 0.1f;
+    uint32_t delay_cycles = (uint32_t)(2000000.0f / speed);
+    if (delay_cycles > 5) delay_cycles -= 10;
+    if (delay_cycles < 50) delay_cycles = 50;
+
     // Dodaj do bufora
     motionBuffer[head].steps = steps;
-    motionBuffer[head].speed = speed;
+    motionBuffer[head].delay_cycles = delay_cycles;
     motionBuffer[head].is_sync_move = is_sync;
     motionBuffer[head].sync_multiplier = multiplier;
     head = (head + 1) % MOTION_BUFFER_SIZE;
@@ -433,40 +406,6 @@ void Stepper::moveSteps()
     pio0_start_mask = 0; pio1_start_mask = 0; pio2_start_mask = 0;
 }
 
-// Ustawianie prędkości poprzez dzielnik zegara PIO
-void Stepper::setSpeed(float steps_per_second)
-{
-    // Zabezpieczenie przed dzieleniem przez zero i ujemnymi wartościami
-    if(steps_per_second <= 0.01f) return;
-    
-    int32_t delay_cycles = (int32_t)(2000000.0f / steps_per_second);
-    delay_cycles -= 10;
-    if (delay_cycles < 2) delay_cycles = 2; 
-
-    pio_sm_set_enabled(PIO_instance, SM_speed, false);
-    // Wyczyść FIFO 
-    pio_sm_clear_fifos(PIO_instance, SM_speed);
-
-    // Zresetuj licznik instrukcji do początku programu (offset_speed)
-    pio_sm_restart(PIO_instance, SM_speed);
-    pio_sm_exec(PIO_instance, SM_speed, pio_encode_jmp(offset_speed));
-
-    // Wyślij nowe opóźnienie do FIFO
-    pio_sm_put_blocking(PIO_instance, SM_speed, delay_cycles);
-
-    uint start_mask = (1u << this->SM_speed);
-    if(PIO_instance == pio0) pio0_start_mask |= start_mask;
-    else if(PIO_instance == pio1) pio1_start_mask |= start_mask;
-    else if(PIO_instance == pio2) pio2_start_mask |= start_mask;
-    
-    // Natychmiastowe włączenie 
-   if(Serial) 
-   {
-        Serial.print("Target Speed: "); Serial.print(steps_per_second);
-        Serial.print(" Hz | Delay Cycles (2MHz base): "); Serial.println(delay_cycles);
-    }
- }
-
 // Ustawienie liczby kroków do wykonania 
 void Stepper::setSteps(long double steps)
 {
@@ -500,34 +439,6 @@ void Stepper::setSteps(long double steps)
 
 }
 
-void Stepper::moveThis(long double steps)
-{
-    if(isMoving == true) 
-    {
-        if(Serial) Serial.println("[STEPPER] Stepper motor is moving");
-        return;
-    }
-    digitalWrite(DIR_PIN, (steps >= 0) ? HIGH : LOW);
-    
-    this->futurePosition = (int)steps + this->position;
-    isMoving = true;
-    if(!Enable)
-    {
-       if(Serial) Serial.println("[STEPPER] Stepper motor is not active"); 
-       return; 
-    } 
-    else
-    {
-        digitalWrite(this->ENABLE_PIN, LOW);
-    }
-
-    pio_sm_set_enabled(PIO_instance, SM_counter, true);
-    pio_sm_set_enabled(PIO_instance, SM_speed, true);
-
-    pio_sm_clear_fifos(PIO_instance, SM_counter);
-    pio_sm_put_blocking(PIO_instance, SM_counter, (uint32_t)abs(steps));
-    
-}
 
 void Stepper::PIO0_ISR_handler_static()
 {
@@ -595,7 +506,7 @@ void Stepper::PIO_ISR_Handler()
        if(remaining_steps <= 0)
         {
             long next_steps = motionBuffer[tail].steps;
-            steps_speed = motionBuffer[tail].speed;
+            this->active_delay_cycles = motionBuffer[tail].delay_cycles;
             bool ext_sync = motionBuffer[tail].is_sync_move;
             float ext_mult = motionBuffer[tail].sync_multiplier;
 
@@ -653,7 +564,7 @@ void Stepper::PIO_ISR_Handler()
 
         remaining_steps -= steps_to_send;
         long steps_with_dir = steps_to_send * steps_direction;
-        loadToPIO(steps_with_dir, steps_speed);
+        loadToPIO(steps_with_dir, this->active_delay_cycles);
 
         uint mask = 0;
         if(PIO_instance == pio0) { mask = pio0_start_mask; pio0_start_mask = 0; pio_set_sm_mask_enabled(pio0, mask, true); }
@@ -668,10 +579,10 @@ void Stepper::PIO_ISR_Handler()
         pio_sm_set_enabled(PIO_instance, SM_speed, false);
     }
 }
-void Stepper::zero()
+void Stepper::zero(float speed)
 {
     long pos = (-1)*this->position;
-    this->moveThis(pos); 
+    this->addMove(pos , speed); 
 }
 void Stepper::setZero()
 {
@@ -686,7 +597,7 @@ bool Stepper::moving()
 }
 void Stepper::set_microSteps_mode(Microsteps mode)
 {
-    if(use_tmc)
+    if(external_driver != nullptr)
     {
         switch(mode)
         {
@@ -702,11 +613,7 @@ void Stepper::set_microSteps_mode(Microsteps mode)
             default: this->micro_steps = 16; break;
         }
 
-        this->tmc_driver->microsteps(this->micro_steps);
-
-        if(this->micro_steps == 256) this->tmc_driver->intpol(false);
-        else this->tmc_driver->intpol(true);
-        
+        this->external_driver->set_microsteps(micro_steps);  
         return;
     }
     
@@ -793,34 +700,34 @@ int Stepper::getPosition()
 
 uint16_t Stepper::get_load()
 {
-    if(!use_tmc || !spi_mutex_initialized) return 0;
+    if(external_driver == nullptr || !spi_mutex_initialized) return 0;
     mutex_enter_blocking(&spi_mutex);
-    uint16_t res = this->tmc_driver->sg_result();
+    uint16_t res = external_driver->get_load();
     mutex_exit(&spi_mutex);
     return res;
 }
 
 uint32_t Stepper::get_status()
 {
-    if(!use_tmc || !spi_mutex_initialized) return 0;
+    if(external_driver == nullptr || !spi_mutex_initialized) return 0;
     mutex_enter_blocking(&spi_mutex);
-    uint32_t res = this->tmc_driver->DRV_STATUS();
+    uint32_t res = external_driver->get_status(); 
     mutex_exit(&spi_mutex);
     return res;
 }
 
 bool Stepper::is_overheated()
 {
-    if(!use_tmc || !spi_mutex_initialized) return false;
+    if(external_driver == nullptr || !spi_mutex_initialized) return false;
     mutex_enter_blocking(&spi_mutex);
-    bool res = this->tmc_driver->ot();
+    bool res = external_driver->is_overheated();
     mutex_exit(&spi_mutex);
     return res;
 }
 
-bool Stepper::get_tmc()
+bool Stepper::get_driver()
 {
-    return this->use_tmc;
+    return (this->external_driver != nullptr);
 }
 
 void Stepper::e_stop()
@@ -857,20 +764,18 @@ bool Stepper::isBufferEmpty()
 
 void Stepper::set_current(uint16_t ma)
 {
-    if(this->use_tmc && tmc_driver != nullptr && spi_mutex_initialized) {
+    if(external_driver != nullptr && spi_mutex_initialized) {
         mutex_enter_blocking(&spi_mutex);
-        SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3));
         if(ma > this->max_current) ma = this->max_current;
-        tmc_driver->rms_current(ma);
-        actuall_current = ma;
-        SPI.endTransaction();
+        external_driver->set_current(ma);
+        actuall_current = external_driver->get_actual_current();
         mutex_exit(&spi_mutex);
     }
 }
 
 void Stepper::set_max_current(uint16_t ma)
 {
-    if(this->use_tmc && tmc_driver != nullptr)
+    if(external_driver != nullptr)
     {
        this->max_current = ma;
     }
@@ -911,5 +816,11 @@ bool Stepper::isEnabled()
 
 float Stepper::get_actuall_current()
 {
+    if (external_driver != nullptr) 
+    {
+        return external_driver->get_actual_current();
+    }
+    
     return this->actuall_current;
 }
+

@@ -6,8 +6,10 @@
 #include <SPI.h>
 #include <malloc.h>
 #include "pico/mutex.h"
+#include "TMC5160_Adapter.h"
+#include "hardware/watchdog.h"
 
-#define FIRMWARE_VERSION "v1.1.0"
+#define FIRMWARE_VERSION "v1.3.0"
 #define FIRMWARE_DATE __DATE__ " " __TIME__ 
 #define FIRMWARE_AUTHOR "Bartosz Danowski"
 #define FIRMWARE_FEATURES "TMC5160 SPI, PIO Steppers, WebSockets, G-Code Parser"
@@ -20,12 +22,16 @@ bool core1_separate_stack = true;
 const int BATCH_SIZE = 15; 
 int processed_count = 0;
 int global_packet_counter = 0;
-unsigned long last_wifi_ping = 0; 
-unsigned long last_telemetry = 0;
 float last_posX = 0;
+
 volatile bool e_stop_triggered_isr = false;
 static bool estop_handled = false;
 static bool stop_sent = false; 
+
+static unsigned long estop_release_timer = 0;
+static unsigned long last_wifi_ping = 0; 
+static unsigned long last_telemetry = 0;
+static unsigned long last_core1_response = 0;
 
 // ________PAMIĘĆ WSPÓLNA________
 
@@ -56,8 +62,12 @@ bool is_ack_empty() { return ackhead == acktail; }
 
 // Konfiguracja silników krokowych na wybranych pinach i PIO
 Stepper motorA(PIO_SELECT_0, STEP_PIN_1, DIR_PIN_1, ENABLE_PIN_1 , HOLD_PIN_1);
-Stepper motorB(PIO_SELECT_1, STEP_PIN_2, DIR_PIN_2, ENABLE_PIN_2 ,HOLD_PIN_2);
-Stepper motorC(PIO_SELECT_2, STEP_PIN_3, DIR_PIN_3, ENABLE_PIN_3 ,HOLD_PIN_3);
+Stepper motorB(PIO_SELECT_0, STEP_PIN_2, DIR_PIN_2, ENABLE_PIN_2 ,HOLD_PIN_2);
+Stepper motorC(PIO_SELECT_1, STEP_PIN_3, DIR_PIN_3, ENABLE_PIN_3 ,HOLD_PIN_3);
+
+TMC5160_Adapter adapterA(CS_PIN_A, R_SENSE_TMC_PLUS, CURRENT_MULTI_HOLD);
+TMC5160_Adapter adapterB(CS_PIN_B, R_SENSE_TMC_PRO, CURRENT_MULTI_HOLD);
+TMC5160_Adapter adapterC(CS_PIN_C, R_SENSE_TMC_PRO, CURRENT_MULTI_BR);
 
 // Procesor G-Code sterujący silnikami
 GCode procesor(&motorA, &motorB, &motorC);
@@ -84,8 +94,6 @@ void web_log(String msg) {
 
 void e_stop_isr()
 {
-    delayMicroseconds(500);
-
     if(digitalRead(E_STOP_PIN) == LOW) return;
     digitalWrite(ENABLE_PIN_1, HIGH);
     digitalWrite(ENABLE_PIN_2, HIGH);
@@ -123,6 +131,14 @@ void on_data_received(uint8_t num, uint8_t *payload, size_t length, WStype_t typ
             
             web_log(String("[WIFI] Zmieniono Override na: ") + val);
             return; 
+        }
+
+        if (length == 5 && strncmp((const char*)payload, "ABORT", 5) == 0) 
+        {
+            e_stop_triggered_isr = true; 
+            procesor.em_stopp();
+            web_log("[WIFI] Zatrzymano awaryjnie z panelu WWW");
+            return;
         }
 
         if (payload[0] == 'G' || payload[0] == 'M') 
@@ -196,9 +212,18 @@ void setup()
     mutex_init(&ack_mutex);
     mutex_init(&log_mutex);
 
+    mutex_init(&Stepper::spi_mutex);
+    Stepper::spi_mutex_initialized = true;
+
     Serial.begin(115200);
-    while(!wifi.isCon()){delay(10);} // Oczekiwanie na monitor portu szeregowego - do wyzucenia w wersji koncowej
-    delay(2000); 
+    while(!wifi.isCon()){delay(10);} 
+
+    if(watchdog_caused_reboot())
+    {
+        Serial.println("[WATCHDOG] WARNING: the machine has been emergency restarted");
+        web_log("[WATCHDOG] WARNING: maszyan zostałą zrestartowana");
+    }
+    watchdog_enable(10000, 1);
 
     Serial.println("\n=============================================");
     Serial.println("       " FIRMWARE_AUTHOR "       ");
@@ -220,14 +245,29 @@ void setup()
     pinMode(E_STOP_PIN, INPUT_PULLDOWN);
     attachInterrupt(digitalPinToInterrupt(E_STOP_PIN), e_stop_isr, RISING);
     // Inicjalizacja silników
+    motorA.attachDriver(&adapterA);
+    motorB.attachDriver(&adapterB);
+    motorC.attachDriver(&adapterC);
+
     if(motorA.init() && motorB.init() && motorC.init())
     {
+        mutex_enter_blocking(&Stepper::spi_mutex);
         // Inicjalizacja sterowników
-        motorA.initTMC(CS_PIN_A, R_SENSE_TMC_PLUS, CURRENT_A);
-        motorB.initTMC(CS_PIN_B, R_SENSE_TMC_PRO, CURRENT_B); 
-        motorC.initTMC(CS_PIN_C, R_SENSE_TMC_PRO, CURRENT_C);
-        Serial.println("[Core 0] Steppers are ready");
-        web_log("[Core 0] Silniki gotowe");
+        if(adapterA.init(CURRENT_A) && adapterB.init(CURRENT_B) && adapterC.init(CURRENT_C))
+        {
+            motorA.set_microSteps_mode(Stepper::mode_16);
+            motorB.set_microSteps_mode(Stepper::mode_16);
+            motorC.set_microSteps_mode(Stepper::mode_16);
+            Serial.println("[Core 0] Steppers are ready");
+            web_log("[Core 0] Silniki gotowe");
+        }
+        else
+        {
+            Serial.println("[Core 0] Steppers are NOT ready");
+            web_log("[Core 0] Silniki nie wystartowały");
+        }
+
+        mutex_exit(&Stepper::spi_mutex);
     }
     else
     {
@@ -242,6 +282,7 @@ void setup()
 // CORE 1 KOMUNIKACJA WIFI
 void setup1()
 {
+    last_core1_response = millis();
     int reconnect_counter = 0;
     // Próba połączenia z WiFi i uruchomienia mDNS
     while(!wifi.init() && reconnect_counter <= 8) 
@@ -277,6 +318,23 @@ void setup1()
 
 void loop() 
 {   
+    /*if (millis() - last_core1_response > 5000)
+    {
+        Serial.println("[WATCHDOG] Core 1 restart");
+        web_log("[WATCHDOG] Restart Core 1");
+        multicore_reset_core1();
+        wifi.reset_clients();
+        multicore_launch_core1(setup1);
+        last_core1_response = millis();
+    } */
+
+    if(motorA.is_overheated() || motorB.is_overheated() || motorC.is_overheated())
+    {
+        e_stop_triggered_isr = true; 
+        procesor.em_stopp();
+        web_log("[WIFI] Zatrzymano awaryjnie z pwoodu przegrzania sterownika");
+    }
+
     if (e_stop_triggered_isr && !estop_handled)
     {
         motorA.e_stop();
@@ -284,24 +342,38 @@ void loop()
         motorC.e_stop();
         estop_handled = true;
         
-        Serial.println("[MAIN] E-STOP ACTIVATED! Motors disabled");
+        mutex_enter_blocking(&cmd_mutex);
+        cmdtail = cmdhead; 
+        mutex_exit(&cmd_mutex);
+
+        Serial.println("[MAIN] E-STOP ACTIVATED, Motors disabled");
         web_log("[MAIN] E-STOP AKTYWNY");
     }
 
-    if(digitalRead(E_STOP_PIN) == LOW && procesor.is_em_stopped() && estop_handled) 
+    if(procesor.is_em_stopped() && estop_handled) 
     {
-        delay(50); 
         if(digitalRead(E_STOP_PIN) == LOW) 
         {
-            Serial.println("[MAIN] E-STOP RELEASED. Ready.");
-            web_log("[MAIN] E-STOP DEAKTYWOWANY");
-            procesor.em_stopp_f(); 
-            e_stop_triggered_isr = false;
-            estop_handled = false;
+            if (estop_release_timer == 0) {
+                estop_release_timer = millis(); 
+            } 
+            else if (millis() - estop_release_timer > 100) 
+            {
+                Serial.println("[MAIN] E-STOP RELEASED. Ready.");
+                web_log("[MAIN] E-STOP DEAKTYWOWANY");
+                procesor.em_stopp_f(); 
+                e_stop_triggered_isr = false;
+                estop_handled = false;
+                estop_release_timer = 0;
+            }
+        }
+        else
+        {
+            estop_release_timer = 0; 
         }
     }
 
-   processedData task;
+    processedData task;
     bool has_task = false;
 
     if(!procesor.is_em_stopped() && !is_ack_full())
@@ -335,6 +407,13 @@ void loop()
             mutex_exit(&ack_mutex);
         }
     }
+
+    if(!has_task)
+    {
+        delay(1);
+    }
+
+    watchdog_update();
 }
 
 void loop1() 
@@ -352,6 +431,21 @@ void loop1()
     else 
     {
         stop_sent = false;
+    }
+    // test krancowiki X
+    static unsigned long last_print = 0;
+    if (millis() - last_print > 500 && digitalRead(HOLD_PIN_1) == HIGH) {
+        Serial.print("Stan krancowki X: ");
+        Serial.println(digitalRead(HOLD_PIN_1)); 
+        last_print = millis();
+    }
+
+        // test krancowiki Y
+    static unsigned long last_print2 = 0;
+    if (millis() - last_print2 > 500 && digitalRead(HOLD_PIN_2) == HIGH) {
+        Serial.print("Stan krancowki Y: ");
+        Serial.println(digitalRead(HOLD_PIN_2)); 
+        last_print2 = millis();
     }
 
 
@@ -435,7 +529,6 @@ void loop1()
         {
             if(Serial) Serial.println("[WIFI] TX Buffer Full");
             web_log("[WIFI] TX Bufor jest pełny");
-            break;
         } 
 
         mutex_enter_blocking(&ack_mutex);
@@ -443,20 +536,24 @@ void loop1()
         processed_count++;
         mutex_exit(&ack_mutex);
 
-        while(logTail != logHead) {
-            char msg[128];
-            mutex_enter_blocking(&log_mutex);
-            strcpy(msg, logQueue[logTail]);
-            logTail = (logTail + 1) % 16;
-            mutex_exit(&log_mutex);
-            
-            StaticJsonDocument<256> logDoc;
-            logDoc["log"] = msg;
-            char logBuffer[256];
-            serializeJson(logDoc, logBuffer);
-            wifi.broadcast_telemetry(logBuffer);
-        }
-
-        yield();
+        
     }
+
+    while(logTail != logHead)
+    {
+        char msg[128];
+        mutex_enter_blocking(&log_mutex);
+        strcpy(msg, logQueue[logTail]);
+        logTail = (logTail + 1) % 16;
+        mutex_exit(&log_mutex);
+            
+        StaticJsonDocument<256> logDoc;
+        logDoc["log"] = msg;
+        char logBuffer[256];
+        serializeJson(logDoc, logBuffer);
+        wifi.broadcast_telemetry(logBuffer);
+    }
+
+    last_core1_response = millis();
+    yield();
 }
