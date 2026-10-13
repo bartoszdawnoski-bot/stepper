@@ -109,6 +109,8 @@ void GCode::execute_parse()
 
             stepperX->zero(factor.v_max_x * 0.5f);        
             stepperY->zero(factor.v_max_y * 0.5f);
+            Stepper::moveSteps();
+
             move_complete();
 
             current_pos_x = 0;
@@ -268,6 +270,8 @@ void GCode::execute_parse()
             }
         }
     }
+    else if(!parser.HasWord('M') && !parser.HasWord('G'))
+        web_log("[GCODE] Zignorowano nierozpoznaną komendę");
 }
 
 // Funkcja publiczna do przetwarzania surowego ciągu znaków

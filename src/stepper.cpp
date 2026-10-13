@@ -363,7 +363,8 @@ bool Stepper::addMove(long steps, float speed, bool is_sync, float multiplier)
 
     // Jeśli bufor pełny zwróć false 
     if(items >= MOTION_BUFFER_SIZE) return false;
-
+    if(steps == 0) return true;
+    
     if(speed <= 0.01f) speed = 0.1f;
     uint32_t delay_cycles = (uint32_t)(2000000.0f / speed);
     if (delay_cycles > 5) delay_cycles -= 10;

@@ -31,7 +31,8 @@ static bool stop_sent = false;
 static unsigned long estop_release_timer = 0;
 static unsigned long last_wifi_ping = 0; 
 static unsigned long last_telemetry = 0;
-static unsigned long last_core1_response = 0;
+static volatile unsigned long last_core1_response = 0;
+static unsigned long last_reconnect_attempt = 0;
 
 // ________PAMIĘĆ WSPÓLNA________
 
@@ -223,7 +224,7 @@ void setup()
         Serial.println("[WATCHDOG] WARNING: the machine has been emergency restarted");
         web_log("[WATCHDOG] WARNING: maszyan zostałą zrestartowana");
     }
-    watchdog_enable(10000, 1);
+    watchdog_enable(60000, 1);
 
     Serial.println("\n=============================================");
     Serial.println("       " FIRMWARE_AUTHOR "       ");
@@ -284,8 +285,9 @@ void setup1()
 {
     last_core1_response = millis();
     int reconnect_counter = 0;
+
     // Próba połączenia z WiFi i uruchomienia mDNS
-    while(!wifi.init() && reconnect_counter <= 8) 
+    while(!wifi.init() && reconnect_counter <= 3) 
     { 
         delay(1);
         reconnect_counter++; 
@@ -318,7 +320,7 @@ void setup1()
 
 void loop() 
 {   
-    /*if (millis() - last_core1_response > 5000)
+    if (millis() - last_core1_response > 300000)
     {
         Serial.println("[WATCHDOG] Core 1 restart");
         web_log("[WATCHDOG] Restart Core 1");
@@ -326,13 +328,15 @@ void loop()
         wifi.reset_clients();
         multicore_launch_core1(setup1);
         last_core1_response = millis();
-    } */
+    } 
 
-    if(motorA.is_overheated() || motorB.is_overheated() || motorC.is_overheated())
+    bool currently_overheated = motorA.is_overheated() || motorB.is_overheated() || motorC.is_overheated();
+
+    if(currently_overheated && !e_stop_triggered_isr)
     {
         e_stop_triggered_isr = true; 
         procesor.em_stopp();
-        web_log("[WIFI] Zatrzymano awaryjnie z pwoodu przegrzania sterownika");
+        web_log("[WIFI] Zatrzymano awaryjnie z powodu przegrzania sterownika");
     }
 
     if (e_stop_triggered_isr && !estop_handled)
@@ -352,7 +356,7 @@ void loop()
 
     if(procesor.is_em_stopped() && estop_handled) 
     {
-        if(digitalRead(E_STOP_PIN) == LOW) 
+        if(digitalRead(E_STOP_PIN) == LOW && !currently_overheated) 
         {
             if (estop_release_timer == 0) {
                 estop_release_timer = millis(); 
@@ -419,7 +423,20 @@ void loop()
 void loop1() 
 {
     if(wifi.isCon()) wifi.run(); 
-    else wifi.reconnect(); 
+    else 
+    {
+        if (millis() - last_reconnect_attempt > 10000) 
+        {
+            wifi.reconnect(); 
+            
+            if(wifi.isCon()) {
+                web_log("[WIFI] Pomyślnie wznowiono połączenie!");
+            } 
+            
+            last_reconnect_attempt = millis();
+        }
+    
+    }
     if(procesor.is_em_stopped()) 
     {
         if(!stop_sent) 
@@ -431,21 +448,6 @@ void loop1()
     else 
     {
         stop_sent = false;
-    }
-    // test krancowiki X
-    static unsigned long last_print = 0;
-    if (millis() - last_print > 500 && digitalRead(HOLD_PIN_1) == HIGH) {
-        Serial.print("Stan krancowki X: ");
-        Serial.println(digitalRead(HOLD_PIN_1)); 
-        last_print = millis();
-    }
-
-        // test krancowiki Y
-    static unsigned long last_print2 = 0;
-    if (millis() - last_print2 > 500 && digitalRead(HOLD_PIN_2) == HIGH) {
-        Serial.print("Stan krancowki Y: ");
-        Serial.println(digitalRead(HOLD_PIN_2)); 
-        last_print2 = millis();
     }
 
 

@@ -1,4 +1,5 @@
 #include "Wifi_menger.h"
+extern void web_log(String msg);
 
 const char* AP_CONFIG_HTML = 
 R"rawliteral( 
@@ -610,6 +611,7 @@ void WiFiMenager::web_socket_events(uint8_t num ,WStype_t type, uint8_t* payload
                 Serial.printf("[%u] Disconnected", num);
                 Serial.println();
             }
+            web_log(String("[WS] Klient ID ") + num + " zamknął panel WWW");
         break;
         case WStype_CONNECTED:
         {
@@ -620,6 +622,7 @@ void WiFiMenager::web_socket_events(uint8_t num ,WStype_t type, uint8_t* payload
                 Serial.printf("[%u] Connected from %d.%d.%d.%d", num, ip[0], ip[1], ip[2], ip[3]);
                 Serial.println();
             }
+            web_log(String("[WS] Nowy klient ID ") + num + " (" + ip.toString() + ")");
         }
         break;
         case WStype_TEXT:
