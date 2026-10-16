@@ -1,0 +1,9 @@
+{
+  "max_speed_x": 200.0,
+  "max_speed_y": 24.0,
+  "max_z": 1000.0,
+  "steps_mm": 40.0,
+  "steps_rot": 200.0,
+  "ssid": "",
+  "pass": ""
+}
