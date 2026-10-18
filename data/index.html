@@ -148,7 +148,7 @@
     .progress-bar { background: var(--warning); height: 100%; width: 0%; transition: width 0.1s linear; }
 
     /* INPUTS & FORMS */
-    label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; }
+    label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
     input[type="text"], input[type="number"], input[type="password"], textarea {
       width: 100%; background-color: var(--bg-panel); border: 1px solid var(--border-light); color: var(--text-main);
       padding: 12px 15px; border-radius: var(--radius-sm); font-size: 0.9rem; transition: all 0.2s; margin-bottom: 15px;
@@ -268,12 +268,14 @@
                 <div class="metric-load" id="val-loadX">0%</div>
                 <div class="metric-value"><span id="val-posX">0.00</span><span class="metric-unit">mm</span></div>
                 <div class="metric-sub" id="val-velX">0.000 m/s</div>
+                <div class="metric-sub" style="color: var(--warning);"><span id="val-currX">0</span> mA</div>
               </div>
               <div class="metric-box">
                 <div class="metric-label">Oś Y (Wrzeciono)</div>
                 <div class="metric-load" id="val-loadY">0%</div>
                 <div class="metric-value"><span id="val-posY">0.00</span><span class="metric-unit">obr</span></div>
                 <div class="metric-sub" id="val-rpm">0 RPM</div>
+                <div class="metric-sub" style="color: var(--warning);"><span id="val-currY">0</span> mA</div>
               </div>
             </div>
 
@@ -378,6 +380,10 @@
           <div class="card">
             <div class="card-header"><h2 class="card-title">Parametry Kinematyki (EEPROM)</h2></div>
             <form id="configForm">
+              <div class="split-grid">
+                <div><label>Prąd Wózka X (mA)</label><input type="number" id="curr_x" name="curr_x" step="1"></div>
+                <div><label>Prąd Wrzeciona Y (mA)</label><input type="number" id="curr_y" name="curr_y" step="1"></div>
+              </div>
               <label>Maksymalny Prąd Hamulca Z (mA)</label>
               <input type="number" id="max_z" name="max_z" step="1">
               <div class="split-grid" style="margin-top: 10px;">
@@ -585,6 +591,9 @@
             smoothedVelX = (SMOOTH * data.velX) + ((1 - SMOOTH) * smoothedVelX);
             document.getElementById('val-velX').innerText = (smoothedVelX / 1000).toFixed(4) + " m/s";
           }
+          if (data.curr_x !== undefined) {
+            document.getElementById('val-currX').innerText = data.curr_x;
+          }
 
           // OŚ Y (RÓŻNICZKOWANIE POZYCJI NA RPM)
           let now = Date.now(), dt = (now - lastTime) / 1000.0;
@@ -597,6 +606,9 @@
             lastPosY = data.posY;
             lastTime = now;
             smoothedRpm = (SMOOTH * currentRpm) + ((1 - SMOOTH) * smoothedRpm);
+          }
+          if (data.curr_y !== undefined) {
+            document.getElementById('val-currY').innerText = data.curr_y;
           }
 
           if (data.rpm !== undefined) currentRpm = data.rpm;
@@ -825,7 +837,7 @@
     fetch('/api/config')
       .then(r => r.json())
       .then(data => {
-        ['max_z', 'max_speed_x', 'max_speed_y', 'steps_mm', 'steps_rot'].forEach(key => {
+        ['curr_x', 'curr_y','max_z', 'max_speed_x', 'max_speed_y', 'steps_mm', 'steps_rot'].forEach(key => {
           if (data[key] !== undefined) document.getElementById(key).value = data[key];
         });
         applyMacrosToUI(data);

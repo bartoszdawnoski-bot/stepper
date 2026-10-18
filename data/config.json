@@ -4,6 +4,8 @@
   "max_z": 1500.0,
   "steps_mm": 40.0,
   "steps_rot": 200.0,
+  "curr_x": 1000.0,
+  "curr_y": 1000.0,
   "ssid": "",
   "pass": ""
 }

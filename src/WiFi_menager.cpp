@@ -391,6 +391,7 @@ bool WiFiMenager::init()
     WiFi.disconnect();
     WiFi.mode(WIFI_STA);
     WiFi.noLowPowerMode();
+    WiFi.setHostname(this->host_name);
     WiFi.begin(this->ssid.c_str(), this->password.c_str());
 
     int retry = 0;
@@ -557,7 +558,8 @@ void WiFiMenager::run()
     }
 }
 
-bool WiFiMenager::load_config(float &sx, float &sy, float &maxz, float &st_mm, float &st_rot) {
+bool WiFiMenager::load_config(float &sx, float &sy, float &maxz, float &st_mm, float &st_rot, float &curr_x, float &curr_y)
+{
     if(!LittleFS.exists("/config.json")) return false;
     
     File file = LittleFS.open("/config.json", "r");
@@ -575,6 +577,8 @@ bool WiFiMenager::load_config(float &sx, float &sy, float &maxz, float &st_mm, f
     if(doc.containsKey("max_z")) maxz = doc["max_z"];
     if(doc.containsKey("steps_mm")) st_mm = doc["steps_mm"];
     if(doc.containsKey("steps_rot")) st_rot = doc["steps_rot"];
+    if(doc.containsKey("curr_x")) curr_x = doc["curr_x"];
+    if(doc.containsKey("curr_y")) curr_y = doc["curr_y"];
 
     return true;
 }
@@ -706,7 +710,7 @@ void WiFiMenager::reconnect()
 
         WiFi.disconnect(); 
         delay(100);
-
+        WiFi.setHostname(this->host_name);
         WiFi.begin(this->ssid.c_str(), this->password.c_str());
 
         while (WiFi.status() != WL_CONNECTED && retry <= 10)

@@ -828,3 +828,8 @@ float Stepper::get_actuall_current()
     return this->actuall_current;
 }
 
+float Stepper::get_max_current()
+{
+    return this->max_current;
+}
+

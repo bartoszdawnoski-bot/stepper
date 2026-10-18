@@ -259,6 +259,8 @@ void setup()
             motorA.set_microSteps_mode(Stepper::mode_16);
             motorB.set_microSteps_mode(Stepper::mode_16);
             motorC.set_microSteps_mode(Stepper::mode_16);
+            motorA.set_max_current(MAX_CURRENT_A);
+            motorB.set_max_current(MAX_CURRENT_B);
             Serial.println("[Core 0] Steppers are ready");
             web_log("[Core 0] Silniki gotowe");
         }
@@ -298,12 +300,12 @@ void setup1()
         wifi.ap_wizard();
     }
 
-    float sx = 200.0f, sy = 200.0f, maxz = 200.0f ,st_mm = 200.0f, st_rot = 200.0f;
-    if (wifi.load_config(sx, sy, maxz, st_mm, st_rot)) 
+    float sx = 200.0f, sy = 200.0f, maxz = 200.0f ,st_mm = 200.0f, st_rot = 200.0f, curr_x = CURRENT_A , curr_y = CURRENT_B;
+    if (wifi.load_config(sx, sy, maxz, st_mm, st_rot, curr_x, curr_y)) 
     {
         Serial.println("[Config] Settings loaded from config.json");   
         web_log("[Config] Załadowano ustawienia z pliku Config.json"); 
-        procesor.update_settings(sx, sy, maxz, st_mm, st_rot);
+        procesor.update_settings(sx, sy, maxz, st_mm, st_rot, curr_x, curr_y);
     } 
     else 
     {
@@ -430,7 +432,7 @@ void loop1()
             wifi.reconnect(); 
             
             if(wifi.isCon()) {
-                web_log("[WIFI] Pomyślnie wznowiono połączenie!");
+                web_log("[WIFI] Pomyślnie wznowiono połączenie");
             } 
             
             last_reconnect_attempt = millis();
@@ -453,11 +455,11 @@ void loop1()
 
     if (wifi.config_changed)
     {
-        float sx, sy, maxz, st_mm, st_rot;
+        float sx, sy, maxz, st_mm, st_rot, curr_x, curr_y;
         
-        if (wifi.load_config(sx, sy, maxz, st_mm, st_rot)) 
+        if (wifi.load_config(sx, sy, maxz, st_mm, st_rot, curr_x, curr_y)) 
         {
-            procesor.update_settings(sx, sy, maxz, st_mm, st_rot);
+            procesor.update_settings(sx, sy, maxz, st_mm, st_rot, curr_x, curr_y);
             Serial.println("[Config] Settings loaded from config.json");
             web_log("[Config] Załadowano ustawienia z pliku Config.json");
         }
@@ -488,6 +490,10 @@ void loop1()
 
         doc["maxValZ"] = procesor.get_current_Z();
         doc["valZ"] = motorC.get_actuall_current();
+
+        doc["curr_x"] = procesor.get_current_x();
+        doc["curr_y"] = procesor.get_current_y();
+
         doc["motorsOn"] = motorA.isEnabled();
         
         doc["clients"] = wifi.get_active_clients();

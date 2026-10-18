@@ -214,6 +214,8 @@ public:
 
     /** @brief Zwraca aktualny prąd silnika */
     float get_actuall_current();
+
+    float get_max_current();
 };
 
 #endif 

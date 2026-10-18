@@ -35,6 +35,8 @@ private:
         float v_max_x = 100.0f; // max predkosc x zeby nie zgubic krokow
         float v_max_y = 100.0f; // max predkosc y
         float seconds_in_minute = 60.0f; // sekundy w minucie
+        float curr_x = 1000.0f;
+        float curr_y = 1000.0f;
     };
 
     // stan maszyna i jak szybko jedzie
@@ -104,7 +106,7 @@ public:
     /**
      * @brief Aktualizuje ustawienia kinematyki w locie (np. po wczytaniu configu).
      */
-    void update_settings(float sx, float sy, float maxZ, float st_mm, float st_rot);
+    void update_settings(float sx, float sy, float maxZ, float st_mm, float st_rot, float cur_x, float cur_y);
 
     bool is_em_stopped();
 
@@ -117,6 +119,9 @@ public:
     float get_steps_perMM_x();
 
     float get_steps_per_rotation_c();
+
+    float get_current_x();
+    float get_current_y();
 };
 
 #endif

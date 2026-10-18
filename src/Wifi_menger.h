@@ -119,7 +119,7 @@ public:
     /**
      * @brief Wczytuje ustawienia silników z pliku JSON.
      */
-    bool load_config(float &sx, float &sy, float &maxz, float &st_mm, float &st_rot);
+    bool load_config(float &sx, float &sy, float &maxz, float &st_mm, float &st_rot, float &curr_x, float &curr_y);
 
     /** @brief Obsługa ręcznego sterowania maszyną (JOG) przez HTTP. */
     void handle_jog();

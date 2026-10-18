@@ -37,6 +37,8 @@
 #define R_SENSE_TMC_PRO     0.075f
 #define CURRENT_A           1000.0f //prad silnika X | 1000mA = 1A
 #define CURRENT_B           1000.0f //prad silnika Y  
+#define MAX_CURRENT_A       3000.0f 
+#define MAX_CURRENT_B       3000.0f  
 #define CURRENT_C           200.0f // prad silnika Z 
 #define CURRENT_MULTI_HOLD  0.3f 
 #define CURRENT_MULTI_BR    1.0f 

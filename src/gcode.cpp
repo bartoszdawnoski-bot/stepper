@@ -158,7 +158,12 @@ void GCode::execute_parse()
             {
                 float val = parser.GetWordValue('Z');
                 uint16_t current_ma = (uint16_t)constrain(val, 0, factor.max_current_Z);
-                if (current_ma < 10 && stepperZ != nullptr) stepperZ->setEnable(false); 
+                if (current_ma < 100 && stepperZ != nullptr) 
+                {
+                    stepperZ->setEnable(false); 
+                    current_ma = 100;
+                }
+
                 if (stepperZ != nullptr) {
                     stepperZ->set_current(current_ma);
                 }
@@ -309,14 +314,36 @@ void GCode::move_complete()
 
 }
 
-void GCode::update_settings(float sx, float sy, float maxZ, float st_mm, float st_rot) {
+void GCode::update_settings(float sx, float sy, float maxZ, float st_mm, float st_rot, float cur_x, float cur_y) {
     factor.v_max_x = sx;
     factor.v_max_y = sy;
     factor.steps_perMM_x = st_mm;
     factor.steps_per_rotation_c = st_rot;
     factor.max_current_Z = maxZ;
-    Serial.print("Max current = "); 
-    Serial.println(maxZ);
+
+    if(cur_x >= stepperX->get_max_current()) factor.curr_x = stepperX->get_max_current();
+    else factor.curr_x = cur_x;
+
+    if(cur_y >= stepperY->get_max_current()) factor.curr_y = stepperY->get_max_current();
+    else factor.curr_y = cur_y;
+
+    if(stepperX->get_actuall_current() != factor.curr_x)
+    {
+        this->stepperX->set_current(factor.curr_x);
+        web_log(String("[LITTLEFS] Ustawiono prąd wózka: ") + factor.curr_x + String(" mA"));
+    }
+
+    if(stepperY->get_actuall_current() != factor.curr_y)
+    {
+        this->stepperY->set_current(factor.curr_y);
+        web_log(String("[LITTLEFS] Ustawiono prąd wrzeciona: ") + factor.curr_y + String(" mA"));
+    }
+
+    if(stepperZ != nullptr && stepperZ->get_max_current() != maxZ)
+    {
+        this->stepperZ->set_max_current(maxZ);
+        web_log(String("[LITTLEFS] Ustawiono maxymalny prąd hamulca: ") + maxZ + String(" mA"));
+    }
 }
 
 bool GCode::is_em_stopped()
@@ -347,4 +374,14 @@ float GCode::get_steps_perMM_x()
 float GCode::get_steps_per_rotation_c()
 {
     return factor.steps_per_rotation_c;
+}
+
+float GCode::get_current_x()
+{
+    return this->stepperX->get_actuall_current();
+}
+
+float GCode::get_current_y()
+{
+    return this->stepperY->get_actuall_current();
 }
