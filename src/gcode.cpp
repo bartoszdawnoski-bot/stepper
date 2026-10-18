@@ -73,42 +73,49 @@ void GCode::execute_parse()
         if(num == 28)
         {
             if(num == 28)
-        {
-            move_complete();
-            if(Serial) Serial.println("[GCODE] Homing procedure started");
-            web_log("[GCODE] Start procedury");
+            {
+                move_complete();
+                if(Serial) Serial.println("[GCODE] Homing procedure started");
+                web_log("[GCODE] Start procedury");
 
-            float speedX_steps = 5.0f * factor.steps_perMM_x * stepperX->get_microsteps();            
-            digitalWrite(TRANSOPT_PIN_A, HIGH);
-            stepperX->addMove(-1000000.0 * stepperX->get_microsteps(), speedX_steps);
-            Stepper::moveSteps();
-            move_complete();
-            digitalWrite(TRANSOPT_PIN_A, LOW);
+                float speedX_steps = 5.0f * factor.steps_perMM_x * stepperX->get_microsteps();            
+                digitalWrite(TRANSOPT_PIN_A, HIGH);
+                stepperX->addMove(-1000000.0 * stepperX->get_microsteps(), speedX_steps);
+                Stepper::moveSteps();
+                move_complete();
+                digitalWrite(TRANSOPT_PIN_A, LOW);
 
-            float speedY_steps = 1.0f * factor.steps_per_rotation_c * stepperY->get_microsteps();
-            digitalWrite(TRANSOPT_PIN_B, HIGH);
-            stepperY->addMove(-1000000.0 * stepperY->get_microsteps(), speedY_steps);
-            Stepper::moveSteps();
-            move_complete();
-            digitalWrite(TRANSOPT_PIN_B, LOW);
+                float speedY_steps = 1.0f * factor.steps_per_rotation_c * stepperY->get_microsteps();
+                digitalWrite(TRANSOPT_PIN_B, HIGH);
+                stepperY->addMove(-1000000.0 * stepperY->get_microsteps(), speedY_steps);
+                Stepper::moveSteps();
+                move_complete();
+                digitalWrite(TRANSOPT_PIN_B, LOW);
 
-            last_stepX = 0;
-            last_stepY = 0;
-            current_pos_x = 0;
-            current_pos_y = 0;
-            if(Serial) Serial.println("[GCODE] Homing Done");
-            web_log("[GCODE] Punkt zero ustawiony");
-            return;
-        }
+                last_stepX = 0;
+                last_stepY = 0;
+                current_pos_x = 0;
+                current_pos_y = 0;
+                if(Serial) Serial.println("[GCODE] Homing Done");
+                web_log("[GCODE] Punkt zero ustawiony");
+                return;
+            }
         }
         if(num == 30)
         {
-            move_complete();
+            move_complete(); 
             if(Serial) Serial.println("[GCODE] Returning to software home (0,0)");
             web_log("[GCODE] Powrot do zera");
 
-            stepperX->zero(factor.v_max_x * 0.5f);        
-            stepperY->zero(factor.v_max_y * 0.5f);
+            float m_x = (stepperX) ? stepperX->get_microsteps() : 1;
+            float m_y = (stepperY) ? stepperY->get_microsteps() : 1;
+
+            float speedX_steps = (factor.v_max_x * 0.5f) * factor.steps_perMM_x * m_x;
+            float speedY_steps = (factor.v_max_y * 0.5f) * factor.steps_per_rotation_c * m_y;
+
+            stepperX->zero(speedX_steps);        
+            stepperY->zero(speedY_steps);
+            
             Stepper::moveSteps();
 
             move_complete();

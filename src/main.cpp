@@ -9,7 +9,7 @@
 #include "TMC5160_Adapter.h"
 #include "hardware/watchdog.h"
 
-#define FIRMWARE_VERSION "v1.3.0"
+#define FIRMWARE_VERSION "v2.0.0"
 #define FIRMWARE_DATE __DATE__ " " __TIME__ 
 #define FIRMWARE_AUTHOR "Bartosz Danowski"
 #define FIRMWARE_FEATURES "TMC5160 SPI, PIO Steppers, WebSockets, G-Code Parser"
@@ -224,7 +224,7 @@ void setup()
         Serial.println("[WATCHDOG] WARNING: the machine has been emergency restarted");
         web_log("[WATCHDOG] WARNING: maszyan zostałą zrestartowana");
     }
-    watchdog_enable(60000, 1);
+    //watchdog_enable(60000, 1);
 
     Serial.println("\n=============================================");
     Serial.println("       " FIRMWARE_AUTHOR "       ");
@@ -320,7 +320,7 @@ void setup1()
 
 void loop() 
 {   
-    if (millis() - last_core1_response > 300000)
+    /*if (millis() - last_core1_response > 300000)
     {
         Serial.println("[WATCHDOG] Core 1 restart");
         web_log("[WATCHDOG] Restart Core 1");
@@ -328,7 +328,7 @@ void loop()
         wifi.reset_clients();
         multicore_launch_core1(setup1);
         last_core1_response = millis();
-    } 
+    } */
 
     bool currently_overheated = motorA.is_overheated() || motorB.is_overheated() || motorC.is_overheated();
 

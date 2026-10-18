@@ -491,6 +491,7 @@ void Stepper::PIO_ISR_Handler()
         
         // Wyłączamy flagę ruchu i maszyny stanów
         this->isMoving = false;
+        this->Enable = false;
         pio_sm_set_enabled(PIO_instance, SM_counter, false);
         pio_sm_set_enabled(PIO_instance, SM_speed, false);
         digitalWrite(this->ENABLE_PIN, HIGH); 
@@ -741,6 +742,8 @@ void Stepper::e_stop()
     this->items = 0;
     this->head = 0;
     this->tail = 0;
+
+    this->remaining_steps = 0;
 
     pio_sm_restart(PIO_instance, SM_speed);
     pio_sm_exec(PIO_instance, SM_speed, pio_encode_jmp(offset_speed));
