@@ -45,29 +45,75 @@ void GCode::execute_parse()
             web_log("[GCODE] Silniki wyłączone");
             stepperX->setEnable(false);
             stepperY->setEnable(false);
-            stepperZ->setEnable(false);
+            if(stepperZ != nullptr) stepperZ->setEnable(false);
         }
         if(num == 84)
         {
             web_log("[GCODE] Silniki włączone");
             stepperX->setEnable(true);
             stepperY->setEnable(true);
-            stepperZ->setEnable(true);
+            if(stepperZ != nullptr) stepperZ->setEnable(true);
+        }
+        if(num == 994)
+        {
+            if(parser.HasWord('X'))
+            {
+                float val = parser.GetWordValue('X');
+                if(val > stepperX->get_max_current()) web_log("[GCODE] Prąd wózka przekracza wcześniej ustawiony maksymalny limit");
+                stepperX->set_max_current(val);
+                web_log("[GCODE] Maksymalny prąd wózka ustawiony na: " + String(val) + " mA");
+            }
+
+            if(parser.HasWord('Y'))
+            {
+                float val = parser.GetWordValue('Y');
+                if(val > stepperY->get_max_current()) web_log("[GCODE] Prąd wrzeciona przekracza wcześniej ustawiony maksymalny limit");
+                stepperY->set_max_current(val);
+                web_log("[GCODE] Maksymalny prąd wrzeciona ustawiony na: " + String(val) + " mA");
+            }
         }
     }
     // Obsługa komend G
     if(parser.HasWord('G'))
     {
         int num = (int)parser.GetWordValue('G');
-        if(num == 90) { relative_mode = false; return; web_log("[GCODE] tryb realtywny wyłączony");}
-        if(num == 91) { relative_mode = true;  return; web_log("[GCODE] tryb relatywny wyłącozny");}
-        if(num == 29)
+        if(num == 90) { relative_mode = false; web_log("[GCODE] tryb realtywny wyłączony"); return; }
+        if(num == 91) { relative_mode = true;   web_log("[GCODE] tryb relatywny wyłącozny"); return;}
+        if(num == 92)
         {
-            web_log("[GCODE] Ustawiono logiczne zero");
-            last_stepX = 0; 
-            last_stepY = 0; 
-            current_pos_x = 0.0f; 
-            current_pos_y = 0.0f; 
+            move_complete();
+            bool any_axis = false;
+
+            if(parser.HasWord('X'))
+            {
+                float val = parser.GetWordValue('X');
+                current_pos_x = val;
+                last_stepX = steps_from_MM(val, factor.steps_perMM_x);
+                if(val == 0.0f) this->stepperX->setZero();
+                web_log("[GCODE] Ustawiono logiczne X = " + String(current_pos_x));
+                any_axis = true;
+            }
+
+            if(parser.HasWord('Y'))
+            {
+                float val = parser.GetWordValue('Y');
+                current_pos_y = val;
+                last_stepY = steps_from_rotation(val, factor.steps_per_rotation_c);
+                if(val == 0.0f) this->stepperY->setZero();
+                web_log("[GCODE] Ustawiono logiczne Y = " + String(current_pos_y));
+                any_axis = true;
+            }
+
+            if(!any_axis)
+            {
+                last_stepX = 0; 
+                last_stepY = 0; 
+                current_pos_x = 0.0f; 
+                current_pos_y = 0.0f;
+                this->stepperX->setZero();
+                this->stepperY->setZero();
+                web_log("[GCODE] Wyzerowano obie osie (0, 0)");
+            }
             return;
         }
         if(num == 28)
@@ -216,12 +262,19 @@ void GCode::execute_parse()
                 current_run_multiplier = 0.1f;
             }
 
-            long steps_sent = 0;
-            long sentX = 0, sentY = 0, sentZ = 0;
-            
+           long steps_sent = 0;
+            long sentX = 0, sentY = 0;
+
+            // Zapamiętujemy punkty startowe przed rozpoczęciem ruchu
+            long start_stepX = last_stepX;
+            long start_stepY = last_stepY;
+            float start_pos_x = current_pos_x;
+            float start_pos_y = current_pos_y;
 
             while (steps_sent < max_steps)
             {
+                if(this->e_stop) return; 
+
                 long active_chunk_size = (steps_in_acceleration < RAMP_STEPS || max_steps - steps_sent < RAMP_STEPS) ? 10 : CHUNK_SIZE;
                 long current_chunk = min(active_chunk_size, max_steps - steps_sent);
                 long steps_remaining = max_steps - steps_sent;
@@ -230,7 +283,6 @@ void GCode::execute_parse()
 
                 if (steps_in_acceleration < RAMP_STEPS) 
                 {
-                    
                     float ramp_progress = (float)steps_in_acceleration / RAMP_STEPS;
                     current_run_multiplier = V_MIN + (0.9f * ramp_progress);
                 }
@@ -249,14 +301,12 @@ void GCode::execute_parse()
 
                 steps_sent += current_chunk;
                 
-                long target_X = (long)(diffX * ((double)steps_sent / max_steps));
-                long target_Y = (long)(diffY * ((double)steps_sent / max_steps));
+                double progress = (double)steps_sent / max_steps;
+                long target_X = (long)(diffX * progress);
+                long target_Y = (long)(diffY * progress);
 
                 long stepX_chunk = target_X - sentX;
                 long stepY_chunk = target_Y - sentY;
-
-                sentX = target_X;
-                sentY = target_Y;
 
                 while((stepX_chunk != 0 && stepperX->isBufferFull()) || 
                       (stepY_chunk != 0 && stepperY->isBufferFull()))
@@ -273,13 +323,22 @@ void GCode::execute_parse()
             
                 Stepper::moveSteps();
 
-                // Zapamiętanie pozycji
-                last_stepX = targetStepX;
-                last_stepY = targetStepY;
+                // Aktualizujemy wysłane kroki dopiero po faktycznym wrzuceniu ich do bufora
+                sentX = target_X;
+                sentY = target_Y;
 
-                current_pos_x = next_pos_x;
-                current_pos_y = next_pos_y;
+                // Proporcjonalna aktualizacja pozycji po każdym wysłanym chunku
+                last_stepX = start_stepX + sentX;
+                last_stepY = start_stepY + sentY;
+                current_pos_x = start_pos_x + (delta_mm_x * (float)progress);
+                current_pos_y = start_pos_y + (delta_unit_y * (float)progress);
             }
+
+            // Po pełnym, nieprzerwanym wykonaniu pętli przypisujemy dokładne wartości końcowe
+            last_stepX = targetStepX;
+            last_stepY = targetStepY;
+            current_pos_x = next_pos_x;
+            current_pos_y = next_pos_y;
         }
     }
     else if(!parser.HasWord('M') && !parser.HasWord('G'))
