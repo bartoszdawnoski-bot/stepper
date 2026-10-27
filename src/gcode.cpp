@@ -86,21 +86,21 @@ void GCode::execute_parse()
 
             if(parser.HasWord('X'))
             {
-                float val = parser.GetWordValue('X');
-                current_pos_x = val;
-                last_stepX = steps_from_MM(val, factor.steps_perMM_x);
-                if(val == 0.0f) this->stepperX->setZero();
-                web_log("[GCODE] Ustawiono logiczne X = " + String(current_pos_x));
+                float val = current_pos_x;
+                current_pos_x = 0.0f;
+                last_stepX = 0;
+                this->stepperX->setZero();
+                web_log("[GCODE] Ustawiono logiczne 0 w X = " + String(val));
                 any_axis = true;
             }
 
             if(parser.HasWord('Y'))
             {
-                float val = parser.GetWordValue('Y');
-                current_pos_y = val;
-                last_stepY = steps_from_rotation(val, factor.steps_per_rotation_c);
-                if(val == 0.0f) this->stepperY->setZero();
-                web_log("[GCODE] Ustawiono logiczne Y = " + String(current_pos_y));
+                float val = current_pos_y;
+                current_pos_y = 0.0f;
+                last_stepY = 0; 
+                this->stepperY->setZero();
+                web_log("[GCODE] Ustawiono logiczne 0 w Y = " + String(val));
                 any_axis = true;
             }
 
@@ -112,7 +112,7 @@ void GCode::execute_parse()
                 current_pos_y = 0.0f;
                 this->stepperX->setZero();
                 this->stepperY->setZero();
-                web_log("[GCODE] Wyzerowano obie osie (0, 0)");
+                web_log("[GCODE] Wyzerowano obie osie (0, 0) w punkcie (" + String(current_pos_x) + ", " + String(current_pos_y) + ")");
             }
             return;
         }

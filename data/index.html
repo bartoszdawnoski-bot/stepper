@@ -328,7 +328,7 @@
             <div class="metric-box" style="margin-bottom: 20px; padding: 10px 15px;">
               <div class="metric-label">PRĘDKOŚĆ JOG (FEEDRATE)</div>
               <div style="display: flex; align-items: center; justify-content: space-between;">
-                <input type="range" class="motion-ctrl" id="feedrate" min="50" max="5000" step="10" value="500" oninput="document.getElementById('fr-val').innerText=this.value" style="width: 70%; margin: 0;">
+                <input type="range" class="motion-ctrl" id="feedrate" min="50" max="500" step="5" value="150" oninput="document.getElementById('fr-val').innerText=this.value" style="width: 70%; margin: 0;">
                 <div class="metric-value" style="font-size: 1.2rem;"><span id="fr-val">500</span><span class="metric-unit">mm/min</span></div>
               </div>
             </div>
@@ -361,8 +361,6 @@
             </div>
             <label>Sprzętowe zasilanie silników</label>
             <div class="split-grid" style="margin-bottom: 30px;">
-              <button class="btn btn-danger motion-ctrl" onclick="sendRaw('M18')">Wyłącz prąd (M18)</button>
-              <button class="btn btn-success motion-ctrl" onclick="sendRaw('M84')">Załącz prąd (M84)</button>
               <button class="btn btn-danger motion-ctrl" onclick="sendRaw('M18')">Wyłącz prąd (M18)</button>
               <button class="btn btn-success motion-ctrl" onclick="sendRaw('M84')">Załącz prąd (M84)</button>
             </div>
@@ -819,7 +817,11 @@
       .then(r => r.text())
       .then(text => {
         try {
-          display.value = JSON.stringify(JSON.parse(text), null, 4);
+          const config = JSON.parse(text);
+          
+          delete config.ssid;
+          delete config.pass; 
+          display.value = JSON.stringify(config, null, 4);
         } catch (e) {
           display.value = text;
         }
@@ -863,7 +865,7 @@
       const saveBtn = document.getElementById(btnId);
       const prevText = saveBtn.innerText;
       saveBtn.disabled = true;
-      saveBtn.innerText = "Trwa zapis do pamięci non-volatile...";
+      saveBtn.innerText = "Trwa zapis do pamięci";
 
       let data = Object.fromEntries(new FormData(e.target).entries());
       if (formId === 'configForm') {

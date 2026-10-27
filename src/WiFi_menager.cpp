@@ -276,41 +276,40 @@ bool WiFiMenager::handle_sd_read(String path) {
     if (path.endsWith("/")) path += "index.html";
     
     mutex_enter_blocking(&Stepper::spi_mutex);
-    bool exists = SD.exists(path);
-    mutex_exit(&Stepper::spi_mutex);
-
-    if (exists) {
-        mutex_enter_blocking(&Stepper::spi_mutex);
-        File file = SD.open(path, "r");
-        size_t fileSize = file.size();
+    if (!SD.exists(path)) {
         mutex_exit(&Stepper::spi_mutex);
-        
-        server.sendHeader("Cache-Control", "public, max-age=31536000");
-        server.setContentLength(fileSize);
-        server.send(200, get_content_type(path), "");
-        
-        uint8_t buffer[512];
-        
-        mutex_enter_blocking(&Stepper::spi_mutex);
-        bool isAvailable = file.available();
-        mutex_exit(&Stepper::spi_mutex);
-
-        while (isAvailable) {
-            mutex_enter_blocking(&Stepper::spi_mutex);
-            size_t bytesRead = file.read(buffer, sizeof(buffer));
-            isAvailable = file.available();
-            mutex_exit(&Stepper::spi_mutex); 
-            
-            server.client().write(buffer, bytesRead);
-            yield();
-        }
-        
-        mutex_enter_blocking(&Stepper::spi_mutex);
-        file.close();
-        mutex_exit(&Stepper::spi_mutex);
-        return true;
+        return false;
     }
-    return false;
+    File file = SD.open(path, "r");
+    if (!file) {
+        mutex_exit(&Stepper::spi_mutex);
+        return false;
+    }
+    size_t fileSize = file.size();
+    mutex_exit(&Stepper::spi_mutex);
+    
+    server.sendHeader("Cache-Control", "public, max-age=31536000");
+    server.setContentLength(fileSize);
+    server.send(200, get_content_type(path), "");
+    
+    uint8_t buffer[2048];
+    size_t totalSent = 0;
+
+    while (totalSent < fileSize) {
+        mutex_enter_blocking(&Stepper::spi_mutex);
+        size_t bytesRead = file.read(buffer, sizeof(buffer));
+        mutex_exit(&Stepper::spi_mutex); 
+        
+        if (bytesRead == 0) break;
+        server.client().write(buffer, bytesRead);
+        totalSent += bytesRead;
+        yield();
+    }
+    
+    mutex_enter_blocking(&Stepper::spi_mutex);
+    file.close();
+    mutex_exit(&Stepper::spi_mutex);
+    return true;
 }
 
 bool WiFiMenager::init()
@@ -391,7 +390,7 @@ bool WiFiMenager::init()
     WiFi.disconnect();
     WiFi.mode(WIFI_STA);
     WiFi.noLowPowerMode();
-    WiFi.setHostname(this->host_name);
+    //WiFi.setHostname(this->host_name);
     WiFi.begin(this->ssid.c_str(), this->password.c_str());
 
     int retry = 0;
@@ -710,7 +709,7 @@ void WiFiMenager::reconnect()
 
         WiFi.disconnect(); 
         delay(100);
-        WiFi.setHostname(this->host_name);
+        //WiFi.setHostname(this->host_name);
         WiFi.begin(this->ssid.c_str(), this->password.c_str());
 
         while (WiFi.status() != WL_CONNECTED && retry <= 10)

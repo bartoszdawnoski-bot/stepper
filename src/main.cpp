@@ -33,6 +33,9 @@ static unsigned long last_wifi_ping = 0;
 static unsigned long last_telemetry = 0;
 static volatile unsigned long last_core1_response = 0;
 static unsigned long last_reconnect_attempt = 0;
+volatile bool spi_and_motors_ready = false;
+static unsigned long last_ot_check = 0;
+static bool currently_overheated = false;
 
 // ________PAMIĘĆ WSPÓLNA________
 
@@ -217,21 +220,8 @@ void setup()
     Stepper::spi_mutex_initialized = true;
 
     Serial.begin(115200);
-    while(!wifi.isCon()){delay(10);} 
-
-    if(watchdog_caused_reboot())
-    {
-        Serial.println("[WATCHDOG] WARNING: the machine has been emergency restarted");
-        web_log("[WATCHDOG] WARNING: maszyan zostałą zrestartowana");
-    }
+   
     //watchdog_enable(60000, 1);
-
-    Serial.println("\n=============================================");
-    Serial.println("       " FIRMWARE_AUTHOR "       ");
-    Serial.print(" Wersja:     "); Serial.println(FIRMWARE_VERSION);
-    Serial.print(" Kompilacja: "); Serial.println(FIRMWARE_DATE);
-    Serial.print(" Funkcje:    "); Serial.println(FIRMWARE_FEATURES);
-    Serial.println("=============================================\n");
 
     SPI.setRX(TMC_MISO_PIN);  // MISO
     SPI.setTX(TMC_MOSI_PIN);  // MOSI
@@ -281,10 +271,27 @@ void setup()
     motorA.setEnable(true);
     motorB.setEnable(true);
     motorC.setEnable(true);
+    spi_and_motors_ready = true;
+    while(!wifi.isCon()) { delay(10); }
+
+    if(watchdog_caused_reboot())
+    {
+        Serial.println("[WATCHDOG] WARNING: the machine has been emergency restarted");
+        web_log("[WATCHDOG] WARNING: maszyan zostałą zrestartowana");
+    }
+
+    Serial.println("\n=============================================");
+    Serial.println("       " FIRMWARE_AUTHOR "       ");
+    Serial.print(" Wersja:     "); Serial.println(FIRMWARE_VERSION);
+    Serial.print(" Kompilacja: "); Serial.println(FIRMWARE_DATE);
+    Serial.print(" Funkcje:    "); Serial.println(FIRMWARE_FEATURES);
+    Serial.println("=============================================\n");
 }
 // CORE 1 KOMUNIKACJA WIFI
 void setup1()
 {
+    while(!spi_and_motors_ready) { delay(5); }
+
     last_core1_response = millis();
     int reconnect_counter = 0;
 
@@ -332,8 +339,11 @@ void loop()
         last_core1_response = millis();
     } */
 
-    bool currently_overheated = motorA.is_overheated() || motorB.is_overheated() || motorC.is_overheated();
-
+    if (millis() - last_ot_check > 500) 
+    {
+        last_ot_check = millis();
+        currently_overheated = motorA.is_overheated() || motorB.is_overheated() || motorC.is_overheated();
+    }
     if(currently_overheated && !e_stop_triggered_isr)
     {
         e_stop_triggered_isr = true; 
@@ -467,7 +477,7 @@ void loop1()
         wifi.config_changed = false;
     }
 
-    if (millis() - last_telemetry > 200) 
+    if (millis() - last_telemetry > 500) 
     {
         unsigned long now = millis();
         float dt = (now - last_telemetry) / 1000.0f; 
