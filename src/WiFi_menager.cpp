@@ -232,7 +232,8 @@ void WiFiMenager::ap_wizard()
         server.send(200, "text/html", AP_CONFIG_HTML);
     });
 
-    server.on("/api/wifi", HTTP_POST, [this]() {
+    volatile bool config_updated = false;
+    server.on("/api/wifi", HTTP_POST, [this, &config_updated]() {
         String new_ssid = server.arg("ssid");
         String new_pass = server.arg("pass");
 
@@ -254,22 +255,31 @@ void WiFiMenager::ap_wizard()
         {
             server.send(200, "text/html", "<h2>Zapisano pomyslnie!</h2><p>Pico teraz sie zrestartuje i sprobuje polaczyc z domowa siecia.</p>");
             file.close();
-            delay(1500);
-            rp2040.reboot(); 
-        } else {
+            config_updated = true;
+        } 
+        else 
+        {
             server.send(500, "text/html", "<h2>Blad zapisu pliku config.json!</h2>");
             file.close();
         }
     });
 
     server.begin();
-    while(true) 
+    while(!config_updated) 
     {
         server.handleClient();
         MDNS.update();
+        watchdog_update();
         delay(10);
     }
 
+    if(Serial) Serial.println("[AP WIZARD] Configuration updated, restarting...");
+    server.stop();
+    delay(1000);
+    rp2040.reboot();
+
+    if(Serial) Serial.println("[AP WIZARD] Restarting failed, halting execution.");
+    while(1){delay(100); }  // Should never reach here
 }
 
 bool WiFiMenager::handle_sd_read(String path) {
@@ -452,8 +462,9 @@ bool WiFiMenager::init()
         // Obsługa restartu Pico
         server.on("/api/reboot", HTTP_POST, [this]() {
             server.send(200, "text/plain", "Rebooting");
-            delay(500);
+            delay(100); // Skrócone opóźnienie
             rp2040.reboot();
+            while(1){}; // Pętla blokująca powrót po żądaniu restartu
         });
 
         server.on("/api/macro", HTTP_POST, [this]() {
@@ -557,7 +568,7 @@ void WiFiMenager::run()
     }
 }
 
-bool WiFiMenager::load_config(float &sx, float &sy, float &maxz, float &st_mm, float &st_rot, float &curr_x, float &curr_y)
+bool WiFiMenager::load_config(MachineSettings &cfg)
 {
     if(!LittleFS.exists("/config.json")) return false;
     
@@ -571,13 +582,17 @@ bool WiFiMenager::load_config(float &sx, float &sy, float &maxz, float &st_mm, f
         if(Serial) Serial.println("[Config] Failed to read file");
         return false;
     }
-    if(doc.containsKey("max_speed_x")) sx = doc["max_speed_x"];
-    if(doc.containsKey("max_speed_y")) sy = doc["max_speed_y"];
-    if(doc.containsKey("max_z")) maxz = doc["max_z"];
-    if(doc.containsKey("steps_mm")) st_mm = doc["steps_mm"];
-    if(doc.containsKey("steps_rot")) st_rot = doc["steps_rot"];
-    if(doc.containsKey("curr_x")) curr_x = doc["curr_x"];
-    if(doc.containsKey("curr_y")) curr_y = doc["curr_y"];
+    if(doc.containsKey("max_speed_x")) cfg.sx = doc["max_speed_x"];
+    if(doc.containsKey("max_speed_y")) cfg.sy = doc["max_speed_y"];
+    if(doc.containsKey("max_z")) cfg.maxz = doc["max_z"];
+    if(doc.containsKey("steps_mm")) cfg.st_mm = doc["steps_mm"];
+    if(doc.containsKey("steps_rot")) cfg.st_rot = doc["steps_rot"];
+    if(doc.containsKey("curr_x")) cfg.curr_x = doc["curr_x"];
+    if(doc.containsKey("curr_y")) cfg.curr_y = doc["curr_y"];
+    if(doc.containsKey("ramp_steps")) cfg.ramp_steps = doc["ramp_steps"];
+    if(doc.containsKey("chunk_size")) cfg.chunk_size = doc["chunk_size"];
+    if(doc.containsKey("v_min")) cfg.v_min = doc["v_min"];
+    if(doc.containsKey("micro_steps")) cfg.micro_steps = doc["micro_steps"];
 
     return true;
 }

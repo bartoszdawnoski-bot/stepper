@@ -1,5 +1,24 @@
 #include "gcode.h"
 
+static float get_current_mA_from_grams(float target_grams) {
+    float target_mN = target_grams * 9.80665f; // Konwersja gramów na miliNiutony
+    
+    // Równanie kwadratowe: 0.00048*I^2 + 0.22*I + (185 - target_mN) = 0
+    float a = 0.00048f;
+    float b = 0.22f;
+    float c = 185.0f - target_mN;
+    
+    float delta = (b * b) - (4.0f * a * c);
+    
+    float target_mA = 100.0f; // Domyślnie bezpieczne 100 mA
+    if (delta >= 0) {
+        target_mA = (-b + sqrtf(delta)) / (2.0f * a);
+    }
+
+    if (target_mA < 100.0f) target_mA = 100.0f;
+    
+    return target_mA;
+}
 
 // Konstruktory dla 2 silników
 GCode::GCode(Stepper* stX, Stepper* stY):
@@ -7,7 +26,16 @@ stepperX(stX),
 stepperY(stY),
 current_pos_x(0.0f), 
 current_pos_y(0.0f)
-{}
+{
+        if(stepperX->get_microsteps() != stepperY->get_microsteps())
+    {
+        web_log("[GCODE] Błąd: Silniki X i Y mają różne ustawienia mikrokroków. Upewnij się, że oba silniki mają takie same ustawienia.");
+        this->actual_microsteps = 0;
+        return;
+    }
+
+    this->actual_microsteps = stepperX->get_microsteps();
+}
 
 GCode::GCode(Stepper* stX, Stepper* stY, Stepper* stZ):
 stepperX(stX),
@@ -15,7 +43,17 @@ stepperY(stY),
 stepperZ(stZ),
 current_pos_x(0.0f), 
 current_pos_y(0.0f)
-{}
+{
+    if(stepperX->get_microsteps() != stepperY->get_microsteps())
+    {
+        web_log("[GCODE] Błąd: Silniki X i Y mają różne ustawienia mikrokroków. Upewnij się, że oba silniki mają takie same ustawienia.");
+        this->actual_microsteps = 0;
+        return;
+    }
+
+    this->actual_microsteps = stepperX->get_microsteps();
+
+}
 
 // Konwersja milimetrów na kroki
 long GCode::steps_from_MM(float mm, float stepsPerMM)
@@ -108,11 +146,11 @@ void GCode::execute_parse()
             {
                 last_stepX = 0; 
                 last_stepY = 0; 
-                current_pos_x = 0.0f; 
-                current_pos_y = 0.0f;
                 this->stepperX->setZero();
                 this->stepperY->setZero();
                 web_log("[GCODE] Wyzerowano obie osie (0, 0) w punkcie (" + String(current_pos_x) + ", " + String(current_pos_y) + ")");
+                current_pos_x = 0.0f; 
+                current_pos_y = 0.0f;
             }
             return;
         }
@@ -200,20 +238,19 @@ void GCode::execute_parse()
                 else next_pos_y = val;
             }
 
+            float start_z_ma = (stepperZ != nullptr) ? stepperZ->get_actuall_current() : 100.0f;
+            float target_z_ma = start_z_ma;
+
             if(parser.HasWord('Z'))
             {
-                float val = parser.GetWordValue('Z');
-                uint16_t current_ma = (uint16_t)constrain(val, 0, factor.max_current_Z);
-                if (current_ma < 100 && stepperZ != nullptr) 
-                {
-                    stepperZ->setEnable(false); 
-                    current_ma = 100;
-                }
+                float val = parser.GetWordValue('Z'); 
+                target_z_ma = get_current_mA_from_grams(val); 
+                
+                if (target_z_ma > factor.max_current_Z) target_z_ma = factor.max_current_Z;
 
-                if (stepperZ != nullptr) {
-                    stepperZ->set_current(current_ma);
+                if (stepperZ != nullptr && !stepperZ->isEnabled()) {
+                    stepperZ->setEnable(true); 
                 }
-
             }
 
             float delta_mm_x = next_pos_x - current_pos_x;
@@ -228,6 +265,9 @@ void GCode::execute_parse()
 
             if (diffX == 0 && diffY == 0) 
             {
+                if (start_z_ma != target_z_ma && stepperZ != nullptr) {
+                    stepperZ->set_current((uint16_t)target_z_ma);
+                }
                 current_pos_x = next_pos_x;
                 current_pos_y = next_pos_y;
                 return; 
@@ -275,21 +315,24 @@ void GCode::execute_parse()
             {
                 if(this->e_stop) return; 
 
-                long active_chunk_size = (steps_in_acceleration < RAMP_STEPS || max_steps - steps_sent < RAMP_STEPS) ? 10 : CHUNK_SIZE;
-                long current_chunk = min(active_chunk_size, max_steps - steps_sent);
+                long active_chunk_size = (steps_in_acceleration < (RAMP_STEPS * actual_microsteps) || max_steps - steps_sent < (RAMP_STEPS * actual_microsteps) ) ? (40 * actual_microsteps) : CHUNK_SIZE * actual_microsteps;                long current_chunk = min(active_chunk_size, max_steps - steps_sent);
                 long steps_remaining = max_steps - steps_sent;
 
                 steps_in_acceleration += current_chunk;
 
-                if (steps_in_acceleration < RAMP_STEPS) 
+                long current_ramp_steps = min(RAMP_STEPS*actual_microsteps, max_steps / 2); 
+                if (current_ramp_steps < 10) current_ramp_steps = 10; // Zabezpieczenie przed zerem
+
+                if (steps_in_acceleration < current_ramp_steps) 
                 {
-                    float ramp_progress = (float)steps_in_acceleration / RAMP_STEPS;
-                    current_run_multiplier = V_MIN + (0.9f * ramp_progress);
+                    float ramp_progress = (float)steps_in_acceleration / current_ramp_steps;
+                    // Płynne skalowanie bez sztywnych ułamków
+                    current_run_multiplier = V_MIN + ((V_MAX - V_MIN) * ramp_progress); 
                 }
-                else if (!this->next_line_available && steps_remaining < RAMP_STEPS) 
+                else if (!this->next_line_available && steps_remaining < current_ramp_steps) 
                 {
-                    float ramp_progress = (float)steps_remaining / RAMP_STEPS;
-                    current_run_multiplier = V_MIN + (0.9f * ramp_progress);
+                    float ramp_progress = (float)steps_remaining / current_ramp_steps;
+                    current_run_multiplier = V_MIN + ((V_MAX - V_MIN) * ramp_progress);
                 }
                 else 
                 {
@@ -321,6 +364,15 @@ void GCode::execute_parse()
                 if (stepX_chunk != 0) stepperX->addMove(stepX_chunk, vX, true, current_run_multiplier);
                 if (stepY_chunk != 0) stepperY->addMove(stepY_chunk, vY, true, current_run_multiplier);
             
+                if (start_z_ma != target_z_ma && stepperZ != nullptr) {
+                    uint16_t interp_ma = (uint16_t)(start_z_ma + (target_z_ma - start_z_ma) * progress);
+                    
+                    if (interp_ma < 100) interp_ma = 100;
+                    if (interp_ma > factor.max_current_Z) interp_ma = (uint16_t)factor.max_current_Z;
+                    
+                    stepperZ->set_current(interp_ma);
+                }
+
                 Stepper::moveSteps();
 
                 // Aktualizujemy wysłane kroki dopiero po faktycznym wrzuceniu ich do bufora
@@ -373,18 +425,41 @@ void GCode::move_complete()
 
 }
 
-void GCode::update_settings(float sx, float sy, float maxZ, float st_mm, float st_rot, float cur_x, float cur_y) {
-    factor.v_max_x = sx;
-    factor.v_max_y = sy;
-    factor.steps_perMM_x = st_mm;
-    factor.steps_per_rotation_c = st_rot;
-    factor.max_current_Z = maxZ;
+void GCode::update_settings(MachineSettings &cfg) {
+    factor.v_max_x = cfg.sx;
+    factor.v_max_y = cfg.sy;
+    factor.steps_perMM_x = cfg.st_mm;
+    factor.steps_per_rotation_c = cfg.st_rot;
+    factor.max_current_Z = cfg.maxz;
 
-    if(cur_x >= stepperX->get_max_current()) factor.curr_x = stepperX->get_max_current();
-    else factor.curr_x = cur_x;
+    set_chunk_size(cfg.chunk_size);
+    set_ramp_steps(cfg.ramp_steps);
+    set_v_min(cfg.v_min);
 
-    if(cur_y >= stepperY->get_max_current()) factor.curr_y = stepperY->get_max_current();
-    else factor.curr_y = cur_y;
+    this->actual_microsteps = cfg.micro_steps;
+    
+    Stepper::Microsteps resolved_mode;
+    switch(cfg.micro_steps) {
+        case 1: resolved_mode = Stepper::mode_1; break;
+        case 2: resolved_mode = Stepper::mode_2; break;
+        case 4: resolved_mode = Stepper::mode_4; break;
+        case 8: resolved_mode = Stepper::mode_8; break;
+        case 16: resolved_mode = Stepper::mode_16; break;
+        case 32: resolved_mode = Stepper::mode_32; break;
+        case 64: resolved_mode = Stepper::mode_64; break;
+        case 128: resolved_mode = Stepper::mode_128; break;
+        case 256: resolved_mode = Stepper::mode_256; break;
+        default: resolved_mode = Stepper::mode_16; this->actual_microsteps = 16; break;
+    }
+
+    stepperX->set_microSteps_mode(resolved_mode);
+    stepperY->set_microSteps_mode(resolved_mode);
+
+    if(cfg.curr_x >= stepperX->get_max_current()) factor.curr_x = stepperX->get_max_current();
+    else factor.curr_x = cfg.curr_x;
+
+    if(cfg.curr_y >= stepperY->get_max_current()) factor.curr_y = stepperY->get_max_current();
+    else factor.curr_y = cfg.curr_y;
 
     if(stepperX->get_actuall_current() != factor.curr_x)
     {
@@ -398,13 +473,12 @@ void GCode::update_settings(float sx, float sy, float maxZ, float st_mm, float s
         web_log(String("[LITTLEFS] Ustawiono prąd wrzeciona: ") + factor.curr_y + String(" mA"));
     }
 
-    if(stepperZ != nullptr && stepperZ->get_max_current() != maxZ)
+    if(stepperZ != nullptr && stepperZ->get_max_current() != cfg.maxz)
     {
-        this->stepperZ->set_max_current(maxZ);
-        web_log(String("[LITTLEFS] Ustawiono maxymalny prąd hamulca: ") + maxZ + String(" mA"));
+        this->stepperZ->set_max_current(cfg.maxz);
+        web_log(String("[LITTLEFS] Ustawiono maxymalny prąd hamulca: ") + cfg.maxz + String(" mA"));
     }
 }
-
 bool GCode::is_em_stopped()
 {
     return this->e_stop;
@@ -443,4 +517,40 @@ float GCode::get_current_x()
 float GCode::get_current_y()
 {
     return this->stepperY->get_actuall_current();
+}
+
+uint GCode::get_microsteps()
+{
+    return this->actual_microsteps;
+}
+
+bool GCode::is_relative_mode()
+{
+    return this->relative_mode;
+}
+
+void GCode::set_chunk_size(long chunk_size)
+{
+    if(chunk_size < 1) chunk_size = 1;
+    this->CHUNK_SIZE = chunk_size;
+}
+
+void GCode::set_ramp_steps(long ramp_steps)
+{
+    if(ramp_steps < 1) ramp_steps = 1;
+    this->RAMP_STEPS = ramp_steps;
+}
+
+void GCode::set_v_min(float v_min)
+{
+    if(v_min < 0.01f) v_min = 0.01f;
+    if(v_min > 1.0f) v_min = 1.0f;
+    this->V_MIN = v_min;
+}
+
+void GCode::set_v_max(float v_max)
+{
+    if(v_max < 0.01f) v_max = 0.01f;
+    if(v_max > 1.0f) v_max = 1.0f;
+    this->V_MAX = v_max;
 }

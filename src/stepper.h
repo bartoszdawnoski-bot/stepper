@@ -85,7 +85,6 @@ private:
     float steps_per_second;
     int position, remaining_steps, futurePosition;
 
-    bool is_zero_seted;
     volatile bool isMoving;
     bool maxSpeed;
     bool Enable;
@@ -216,6 +215,9 @@ public:
     float get_actuall_current();
 
     float get_max_current();
+
+    static float get_global_override();
+
 };
 
 #endif 

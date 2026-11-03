@@ -1,3 +1,5 @@
+#pragma once
+
 //PIO
 #define PIO_SELECT_0        pio0
 #define PIO_SELECT_1        pio1
@@ -47,3 +49,19 @@
 #define E_STOP_PIN          15
 #define TRANSOPT_PIN_A      26            
 #define TRANSOPT_PIN_B      27    
+
+
+struct MachineSettings {
+    float sx = 12.0f;
+    float sy = 8.0f;
+    float maxz = 1500.0f;
+    float st_mm = 50.0f;
+    float st_rot = 200.0f;
+    float curr_x = CURRENT_A;
+    float curr_y = CURRENT_B;
+    
+    long ramp_steps = 600;
+    long chunk_size = 25;
+    float v_min = 0.02f;
+    int micro_steps = 16;
+};

@@ -12,22 +12,17 @@
       --bg-card: #1a1d27;
       --border-light: #2a2f3e;
       --border-focus: #3b82f6;
-
       --text-main: #f3f4f6;
       --text-muted: #9ca3af;
       --text-accent: #60a5fa;
-
       --accent: #2563eb;
       --accent-hover: #1d4ed8;
-
       --danger: #ef4444;
       --danger-hover: #dc2626;
       --danger-bg: rgba(239, 68, 68, 0.1);
-
       --success: #10b981;
       --success-hover: #059669;
       --warning: #f59e0b;
-
       --radius-sm: 6px;
       --radius-md: 10px;
     }
@@ -40,7 +35,6 @@
       width: 260px; background-color: var(--bg-panel); border-right: 1px solid var(--border-light);
       display: flex; flex-direction: column; padding: 20px 0; z-index: 10;
     }
-
     .brand { padding: 0 20px 30px; display: flex; align-items: center; gap: 15px; }
 
     /* ANIMOWANA DIODA WEBSOCKET */
@@ -88,7 +82,6 @@
       background-color: var(--bg-panel); border-bottom: 1px solid var(--border-light);
       padding: 15px 30px; display: flex; justify-content: space-between; align-items: center;
     }
-
     .btn-estop {
       background-color: var(--danger); color: white; border: none; padding: 12px 24px;
       border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 700; letter-spacing: 1px;
@@ -104,7 +97,6 @@
     .tab-content { display: none; opacity: 1; transition: opacity 0.2s ease-in-out; }
 
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 24px; }
-
     .card { 
       background-color: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); 
       padding: 24px; display: flex; flex-direction: column;
@@ -127,6 +119,7 @@
     .badge-ok { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
     .badge-err { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); animation: pulse-err 1s infinite alternate; }
     .badge-warn { background: rgba(245, 158, 11, 0.1); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-info { background: rgba(59, 130, 246, 0.1); color: var(--text-accent); border: 1px solid rgba(59, 130, 246, 0.3); }
 
     @keyframes pulse-err { from { opacity: 0.8; } to { opacity: 1; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); } }
 
@@ -144,16 +137,16 @@
     .metric-sub { font-size: 0.85rem; color: var(--text-accent); margin-top: 5px; font-family: monospace; }
     .metric-load { position: absolute; top: 15px; right: 15px; font-size: 0.8rem; font-weight: 600; color: var(--success); transition: color 0.3s; }
 
-    .progress-track { background: var(--bg-app); height: 6px; border-radius: 3px; overflow: hidden; margin-top: 15px; }
-    .progress-bar { background: var(--warning); height: 100%; width: 0%; transition: width 0.1s linear; }
+    .progress-track { background: rgba(255,255,255,0.05); height: 6px; border-radius: 3px; overflow: hidden; margin-top: 15px; border: 1px solid var(--border-light); }
+    .progress-bar { background: var(--warning); height: 100%; width: 0%; transition: width 0.2s ease-out, background-color 0.3s ease-out; }
 
     /* INPUTS & FORMS */
     label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
-    input[type="text"], input[type="number"], input[type="password"], textarea {
+    input[type="text"], input[type="number"], input[type="password"], textarea, select {
       width: 100%; background-color: var(--bg-panel); border: 1px solid var(--border-light); color: var(--text-main);
       padding: 12px 15px; border-radius: var(--radius-sm); font-size: 0.9rem; transition: all 0.2s; margin-bottom: 15px;
     }
-    input:focus, textarea:focus { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
     input[type="range"] { width: 100%; margin: 15px 0; accent-color: var(--accent); cursor: pointer; }
     textarea { font-family: monospace; line-height: 1.5; resize: vertical; }
 
@@ -176,6 +169,9 @@
     .btn-success { background-color: rgba(16, 185, 129, 0.15); border-color: var(--success); color: var(--success); }
     .btn-success:hover:not(:disabled) { background-color: var(--success); color: white; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
 
+    .btn-warning { background-color: rgba(245, 158, 11, 0.15); border-color: var(--warning); color: var(--warning); }
+    .btn-warning:hover:not(:disabled) { background-color: var(--warning); color: white; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+
     .jog-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
     .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 
@@ -184,6 +180,51 @@
     .diag-text { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-light); padding: 8px 0; }
     .diag-text:last-child { border-bottom: none; }
     .diag-val { color: var(--text-main); font-weight: bold; }
+
+    /* ZWIJANE SEKCJE (AKORDEON) I TOOLTIPY */
+    .accordion-header {
+      background-color: var(--bg-panel);
+      padding: 12px 15px;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      margin-bottom: 10px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      color: var(--text-accent);
+      transition: all 0.2s;
+    }
+    .accordion-header:hover { background-color: var(--bg-card); border-color: var(--border-focus); }
+    
+    .accordion-content {
+      padding: 0 15px;
+      display: none;
+      border-left: 2px solid var(--border-focus);
+      margin-left: 5px;
+      margin-bottom: 20px;
+    }
+    .accordion-content.open { display: block; animation: fadeIn 0.3s ease-in-out; }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .help-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 50%;
+      background-color: rgba(96, 165, 250, 0.2); color: var(--text-accent);
+      font-size: 0.75rem; font-weight: bold; margin-left: 8px; cursor: help; position: relative;
+    }
+    .help-icon:hover::after {
+      content: attr(data-tooltip); position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
+      background-color: var(--bg-panel); border: 1px solid var(--border-light); color: var(--text-main);
+      padding: 8px 12px; border-radius: var(--radius-sm); font-size: 0.75rem; white-space: pre-wrap;
+      width: max-content; max-width: 250px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 100;
+      pointer-events: none; font-weight: normal; text-align: left;
+    }
 
     /* HUD (HEADS-UP DISPLAY) MODE */
     #hud-overlay {
@@ -249,7 +290,6 @@
       <!-- DASHBOARD -->
       <div id="tab-dash" class="tab-content" style="display: block;">
 
-        <!-- PRZYCISK WŁĄCZAJĄCY TRYB OBSERWATORA (HUD) -->
         <button class="btn btn-primary" onclick="toggleHUD()" style="margin-bottom: 24px; font-size: 1rem; letter-spacing: 2px;">
           [ ] URUCHOM PRZEMYSŁOWY TRYB OBSERWATORA (HUD)
         </button>
@@ -279,10 +319,25 @@
               </div>
             </div>
 
-            <div class="metric-box" style="margin-bottom: 24px;">
-              <div class="metric-label">Naciąg (Koło Hamujące Z)</div>
-              <div class="metric-value" style="color: var(--warning);"><span id="val-valZ">0</span><span class="metric-unit">mA</span></div>
-              <div class="progress-track"><div class="progress-bar" id="bar-valZ"></div></div>
+            <!-- MODYFIKACJA WIZUALNA HAMULCA -->
+            <div class="metric-box" style="margin-bottom: 24px; border-color: rgba(245, 158, 11, 0.4);">
+              <div class="metric-label" style="display:flex; justify-content:space-between;">
+                <span style="color: var(--warning);">Naciąg (Koło Hamujące Z)</span>
+                <span style="color: var(--text-muted); font-size: 0.75rem;">Prąd: <span id="val-valZ">0</span> mA</span>
+              </div>
+              
+              <div class="metric-value" style="color: var(--warning); margin-bottom: 5px;">
+                <span id="val-tensionZ">0.0</span><span class="metric-unit">g</span>
+              </div>
+              
+              <div class="metric-sub" style="color: var(--text-muted); font-size: 0.8rem;">
+                Siła oporu fizycznego: <span id="val-tensionZmN" style="color: var(--text-main); font-weight: bold;">0</span> mN
+              </div>
+
+              <div class="progress-track">
+                <!-- Pasek progresu z dynamicznym kolorem w JS -->
+                <div class="progress-bar" id="bar-valZ"></div>
+              </div>
             </div>
 
             <div class="card-title" style="font-size: 0.85rem; margin-bottom: 10px; color: var(--text-muted);">DIAGNOSTYKA UKŁADU (SPI)</div>
@@ -291,7 +346,7 @@
             <div class="diag-text"><span>Hamulec (Z):</span> <span class="diag-val"><span id="val-statZ">0x00000000</span> [<span id="text-statZ" style="color: var(--success);">OK</span>]</span></div>
           </div>
 
-          <!-- KARTA: KONTROLA PROCESU (BEZ LICZNIKA SESJI) -->
+          <!-- KARTA: KONTROLA PROCESU -->
           <div class="card">
             <div class="card-header">
               <h2 class="card-title">Monitor Procesu & Zmienne</h2>
@@ -309,9 +364,27 @@
               </div>
             </div>
 
+            <div class="metric-box" style="margin-top: 20px; border: 1px solid var(--accent); background: rgba(37, 99, 235, 0.05);">
+              <div class="metric-label" style="display:flex; justify-content:space-between; color: var(--text-accent);">
+                <span>OVERRIDE LIVE (Z KONTROLERA)</span>
+                <span id="dash-override" style="font-weight:bold; font-size: 1.2rem;">--%</span>
+              </div>
+            </div>
+
+            <div class="metric-grid" style="margin-top: 15px;">
+              <div class="metric-box">
+                <div class="metric-label">TRYB PRACY GCODE</div>
+                <div class="metric-value"><span id="dash-mode" class="badge badge-info" style="font-size: 1rem; padding: 5px 15px;">--</span></div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">MIKROKROKI (SPRZĘTOWE)</div>
+                <div class="metric-value">1/<span id="dash-microsteps">--</span></div>
+              </div>
+            </div>
+            
             <div class="metric-box" style="margin-top: 20px;">
               <div class="metric-label" style="display:flex; justify-content:space-between;">
-                <span>OVERRIDE (NADPISANIE PRĘDKOŚCI)</span>
+                <span>ZADANY OVERRIDE Z KONSOLI</span>
                 <span id="override-display" style="color: var(--accent); font-weight:bold; font-size: 1rem;">100%</span>
               </div>
               <input type="range" class="motion-ctrl" id="override-slider" min="5" max="200" value="100" oninput="updateOverride(this.value)">
@@ -329,7 +402,7 @@
               <div class="metric-label">PRĘDKOŚĆ JOG (FEEDRATE)</div>
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <input type="range" class="motion-ctrl" id="feedrate" min="50" max="500" step="5" value="150" oninput="document.getElementById('fr-val').innerText=this.value" style="width: 70%; margin: 0;">
-                <div class="metric-value" style="font-size: 1.2rem;"><span id="fr-val">500</span><span class="metric-unit">mm/min</span></div>
+                <div class="metric-value" style="font-size: 1.2rem;"><span id="fr-val">150</span><span class="metric-unit">mm/min</span></div>
               </div>
             </div>
             <label>Oś X (Wózek) [mm]</label>
@@ -374,27 +447,99 @@
         </div>
       </div>
 
-      <!-- KONFIGURACJA -->
+      <!-- KONFIGURACJA Z AKORDEONEM -->
       <div id="tab-config" class="tab-content">
         <div class="grid">
           <div class="card">
             <div class="card-header"><h2 class="card-title">Parametry Kinematyki (EEPROM)</h2></div>
             <form id="configForm">
-              <div class="split-grid">
-                <div><label>Prąd Wózka X (mA)</label><input type="number" id="curr_x" name="curr_x" step="1"></div>
-                <div><label>Prąd Wrzeciona Y (mA)</label><input type="number" id="curr_y" name="curr_y" step="1"></div>
+              
+              <!-- GRUPA 1: LIMITY PRĄDOWE -->
+              <div class="accordion-header" onclick="toggleAccordion('acc-currents')">
+                Limity Prądowe Silników <span>&#9660;</span>
               </div>
-              <label>Maksymalny Prąd Hamulca Z (mA)</label>
-              <input type="number" id="max_z" name="max_z" step="1">
-              <div class="split-grid" style="margin-top: 10px;">
-                <div><label>Max Prędkość X (mm/s)</label><input type="number" id="max_speed_x" name="max_speed_x" step="0.1"></div>
-                <div><label>Max Prędkość Y (obr/s)</label><input type="number" id="max_speed_y" name="max_speed_y" step="0.1"></div>
-                <div><label>Kroki / MM (Oś X)</label><input type="number" id="steps_mm" name="steps_mm" step="0.01"></div>
-                <div><label>Kroki / OBR (Oś Y)</label><input type="number" id="steps_rot" name="steps_rot" step="0.01"></div>
+              <div class="accordion-content open" id="acc-currents">
+                <div class="split-grid">
+                  <div>
+                    <label>Prąd Wózka X (mA) <span class="help-icon" data-tooltip="Roboczy prąd RMS zasilający silnik przesuwny. Zbyt duży spowoduje przegrzanie sterownika TMC.">?</span></label>
+                    <input type="number" id="curr_x" name="curr_x" step="1">
+                  </div>
+                  <div>
+                    <label>Prąd Wrzeciona Y (mA) <span class="help-icon" data-tooltip="Roboczy prąd RMS zasilający silnik obrotowy (nawijający).">?</span></label>
+                    <input type="number" id="curr_y" name="curr_y" step="1">
+                  </div>
+                </div>
+                <label>Maksymalny Prąd Hamulca Z (mA) <span class="help-icon" data-tooltip="Maksymalny dopuszczalny prąd dla napinacza drutu. Panel kontrolny nie pozwoli przekroczyć tej wartości.">?</span></label>
+                <input type="number" id="max_z" name="max_z" step="1">
               </div>
-              <button type="submit" class="btn btn-primary" id="saveBtn" style="margin-top: 20px;">Zapisz w pamięci</button>
+
+              <!-- GRUPA 2: KINEMATYKA -->
+              <div class="accordion-header" onclick="toggleAccordion('acc-kinematics')">
+                Skalowanie Kinematyki i Prędkości <span>&#9660;</span>
+              </div>
+              <div class="accordion-content" id="acc-kinematics">
+                <div class="split-grid">
+                  <div>
+                    <label>Max Prędkość X (mm/s) <span class="help-icon" data-tooltip="Hard-limit prędkości wózka. Kod G-Code (np. komenda F) zostanie ograniczony, jeśli przekroczy tę wartość, zapobiegając gubieniu kroków.">?</span></label>
+                    <input type="number" id="max_speed_x" name="max_speed_x" step="0.1">
+                  </div>
+                  <div>
+                    <label>Max Prędkość Y (obr/s) <span class="help-icon" data-tooltip="Hard-limit prędkości obrotowej wrzeciona.">?</span></label>
+                    <input type="number" id="max_speed_y" name="max_speed_y" step="0.1">
+                  </div>
+                  <div>
+                    <label>Kroki / MM (Oś X) <span class="help-icon" data-tooltip="Ilość kroków (uwzględniając mikrokroki) potrzebnych do przesunięcia wózka o 1 milimetr.">?</span></label>
+                    <input type="number" id="steps_mm" name="steps_mm" step="0.01">
+                  </div>
+                  <div>
+                    <label>Kroki / OBR (Oś Y) <span class="help-icon" data-tooltip="Ilość kroków (uwzględniając mikrokroki) potrzebnych do wykonania pełnego obrotu (360 stopni).">?</span></label>
+                    <input type="number" id="steps_rot" name="steps_rot" step="0.01">
+                  </div>
+                </div>
+              </div>
+
+              <!-- GRUPA 3: RAMPA I MIKROKROKI -->
+              <div class="accordion-header" onclick="toggleAccordion('acc-ramp')">
+                Parametry Rampy & Interpolacja <span>&#9660;</span>
+              </div>
+              <div class="accordion-content" id="acc-ramp">
+                <div class="split-grid">
+                  <div>
+                    <label>Długość Rampy (kroki) <span class="help-icon" data-tooltip="Rozmiar rampy przyspieszania/hamowania. Większa wartość = łagodniejszy start silnika (mniej szarpania), ale wolniejsza reakcja.">?</span></label>
+                    <input type="number" id="ramp_steps" name="ramp_steps" step="1">
+                  </div>
+                  <div>
+                    <label>Rozmiar Pakietu (Chunk) <span class="help-icon" data-tooltip="Co ile kroków procesor odświeża prędkość (dzielnik PIO). Mniejszy = gładsza trajektoria, ale mocniej obciąża procesor. Zbyt duży = 'schodkowa' zmiana prędkości.">?</span></label>
+                    <input type="number" id="chunk_size" name="chunk_size" step="1">
+                  </div>
+                  <div>
+                    <label>Mnożnik V_MIN <span class="help-icon" data-tooltip="Początkowa prędkość startowa na rampie (od 0.01 do 1.0). Np. 0.1 oznacza, że silnik startuje z 10% zadanej prędkości i przyspiesza.">?</span></label>
+                    <input type="number" id="v_min" name="v_min" step="0.01" min="0.01" max="1.0">
+                  </div>
+                  <div>
+                    <label>Mikrokroki<span class="help-icon" data-tooltip="Podział sprzętowy kroków. Będzie wymagał dwukrotnego powiększenia 'Kroki/MM' oraz 'Kroki/OBR' po przejściu o jeden stopień w górę.">?</span></label>
+                    <select id="micro_steps" name="micro_steps">
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="4">4</option>
+                      <option value="8">8</option>
+                      <option value="16">16</option>
+                      <option value="32">32</option>
+                      <option value="64">64</option>
+                      <option value="128">128</option>
+                      <option value="256">256</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 15px; margin-top: 20px;">
+                <button type="submit" class="btn btn-primary" id="saveBtn">Zapisz w pamięci</button>
+                <button type="button" class="btn btn-warning" onclick="resetToDefaults()">Przywróć Domyślne</button>
+              </div>            
             </form>
           </div>
+          
           <div class="card">
             <div class="card-header"><h2 class="card-title">Edytor Makr (G-Code)</h2></div>
             <form id="macroForm">
@@ -483,10 +628,13 @@
         <div class="hud-label">OBROTY WRZECIONA (Y)</div>
         <div class="hud-value"><span id="hud-val-rpm">0.0</span><span class="hud-unit"> RPM</span></div>
       </div>
+      
+      <!-- ZMIANA JEDNOSTKI NA GRAMY W HUD -->
       <div class="hud-box" style="border-color: #ffaa00;">
         <div class="hud-label">NACIĄG HAMULCA (Z)</div>
-        <div class="hud-value" style="color: #ffaa00; text-shadow: 0 0 20px rgba(255,170,0,0.5);"><span id="hud-val-z">0</span><span class="hud-unit"> mA</span></div>
+        <div class="hud-value" style="color: #ffaa00; text-shadow: 0 0 20px rgba(255,170,0,0.5);"><span id="hud-val-z">0</span><span class="hud-unit"> g</span></div>
       </div>
+      
     </div>
   </div>
 
@@ -508,7 +656,7 @@
     document.getElementById('hmi-time').innerText = new Date().toLocaleTimeString('pl-PL', { hour12: false });
   }, 1000);
 
-  // NAWIGACJA MIĘDZY KARTAMI (Poprawiony bug z opacity)
+  // NAWIGACJA MIĘDZY KARTAMI
   function openTab(evt, tabName) {
     document.querySelectorAll('.tab-content').forEach(tab => {
       tab.style.display = 'none';
@@ -518,8 +666,7 @@
 
     const target = document.getElementById(tabName);
     target.style.display = 'block';
-    
-    // Wymuszenie reflow przed przywróceniem opacity i animacji kart
+      
     void target.offsetWidth;
     target.style.opacity = '1';
 
@@ -528,6 +675,12 @@
     } else if (tabName === 'tab-dash') {
       document.querySelector('.nav-menu .nav-btn').classList.add('active');
     }
+  }
+
+  // ZWIJANY AKORDEON W KONFIGURACJI
+  function toggleAccordion(id) {
+    const el = document.getElementById(id);
+    el.classList.toggle('open');
   }
 
   // TRYB OBSERWATORA (HUD)
@@ -581,6 +734,7 @@
         }
 
         if (data.msgType === 16) {
+          
           // OŚ X
           if (data.posX !== undefined) {
             const xFixed = data.posX.toFixed(2);
@@ -623,19 +777,49 @@
           document.getElementById('val-wire-ms').innerText = finalWireSpeed;
           if (isHUDActive) document.getElementById('hud-val-wire').innerText = finalWireSpeed;
 
+          // NOWE ZMIENNE W DASHBOARDZIE Z PĘTLI 0x10
+          if (data.microsteps !== undefined) {
+             document.getElementById('dash-microsteps').innerText = data.microsteps;
+          }
+          if (data.override !== undefined) {
+             document.getElementById('dash-override').innerText = data.override.toFixed(0) + "%";
+          }
+          if (data.mode !== undefined) {
+             const modeBadge = document.getElementById('dash-mode');
+             modeBadge.innerText = data.mode === "REL" ? "RELATYWNY" : "ABSOLUTNY";
+             modeBadge.className = data.mode === "REL" ? "badge badge-info" : "badge badge-warn";
+          }
+
           // ALARM TEMPERATURY
           if (data.ot !== undefined) {
             document.getElementById('temp-warning').style.display = data.ot ? 'block' : 'none';
           }
 
-          // OŚ Z (HAMULEC)
+          // --- OŚ Z (HAMULEC - WIZUALIZACJA Z PRZELICZENIEM NA GRAMY) ---
           let currentMaxZ = data.maxValZ !== undefined ? data.maxValZ : 1500;
+          
           if (data.valZ !== undefined) {
-            document.getElementById('val-valZ').innerText = data.valZ;
+            document.getElementById('val-valZ').innerText = data.valZ.toFixed(0);
+            
+            // Kolorowy pasek ("tension gauge") w zależności od bliskości maksimum prądu
             let pctZ = Math.min(100, Math.max(0, (data.valZ / currentMaxZ) * 100));
-            document.getElementById('bar-valZ').style.width = pctZ + "%";
-            if (isHUDActive) document.getElementById('hud-val-z').innerText = data.valZ;
+            const bar = document.getElementById('bar-valZ');
+            bar.style.width = pctZ + "%";
+            
+            // Dynamika koloru wskaźnika: Zielony (dobry margines) -> Pomarańcz (roboczy) -> Czerwony (blisko limitu)
+            bar.style.backgroundColor = pctZ < 50 ? 'var(--success)' : (pctZ < 85 ? 'var(--warning)' : 'var(--danger)');
           }
+
+          if (data.tensionZ_g !== undefined) {
+            const grams = data.tensionZ_g.toFixed(1);
+            document.getElementById('val-tensionZ').innerText = grams;
+            if (isHUDActive) document.getElementById('hud-val-z').innerText = grams;
+          }
+
+          if (data.tensionZ_mN !== undefined) {
+            document.getElementById('val-tensionZmN').innerText = data.tensionZ_mN.toFixed(0);
+          }
+          // -------------------------------------------------------------
 
           // DIAGNOSTYKA TMC (SPI)
           if (data.statX !== undefined) updateDiag('statX', data.statX);
@@ -841,8 +1025,11 @@
     fetch('/api/config')
       .then(r => r.json())
       .then(data => {
-        ['curr_x', 'curr_y','max_z', 'max_speed_x', 'max_speed_y', 'steps_mm', 'steps_rot'].forEach(key => {
-          if (data[key] !== undefined) document.getElementById(key).value = data[key];
+        ['curr_x', 'curr_y','max_z', 'max_speed_x', 'max_speed_y', 'steps_mm', 'steps_rot', 'ramp_steps', 'chunk_size', 'v_min', 'micro_steps'].forEach(key => {
+          if (data[key] !== undefined) {
+             const el = document.getElementById(key);
+             if(el) el.value = data[key];
+          }
         });
         applyMacrosToUI(data);
       })
@@ -869,7 +1056,14 @@
 
       let data = Object.fromEntries(new FormData(e.target).entries());
       if (formId === 'configForm') {
-        for (let key in data) data[key] = parseFloat(data[key]);
+        for (let key in data) {
+          // FIX NULL: Konwertuj tylko gdy pole nie jest puste
+          if (data[key] !== "") {
+            data[key] = parseFloat(data[key]);
+          } else {
+             delete data[key]; // Pomija puste inputy
+          }
+        }
       }
 
       fetch(apiEndpoint, {
@@ -896,22 +1090,77 @@
   handleFormSubmit('configForm', '/api/config', 'saveBtn', 'Zmienne kinematyczne zapisane w EEPROM/FS.');
   handleFormSubmit('macroForm', '/api/macro', 'saveMacroBtn', 'Pamięć makr została zaktualizowana.');
 
-  // ZAPIS USTAWIEŃ WI-FI
+ // ZAPIS USTAWIEŃ WI-FI
   document.getElementById('wifiForm').addEventListener('submit', function(e) {
     e.preventDefault();
     if (!confirm("Karta sieciowa zostanie zresetowana. Może to spowodować przerwę w sterowaniu. Kontynuować?")) return;
     const btn = document.getElementById('saveWifiBtn');
     btn.disabled = true;
+    btn.innerText = "Restartowanie modułu...";
+    
     fetch('/api/wifi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(Object.fromEntries(new FormData(e.target).entries()))
     })
-    .catch(() => console.log("Połączenie sprzętowe zresetowane."))
-    .finally(() => {
-      setTimeout(() => { btn.disabled = false; }, 5000);
-    });
+    .then(() => {
+      // Polling - sprawdzamy co 3 sekundy, czy strona wstała
+      let checkInterval = setInterval(() => {
+        fetch('/api/info')
+          .then(r => {
+            if(r.ok) {
+              clearInterval(checkInterval);
+              alert("Połączenie nawiązane z nową siecią.");
+              location.reload();
+            }
+          }).catch(() => console.log("Czekam na uruchomienie nawijarki..."));
+      }, 3000);
+    })
+    .catch(() => alert("Błąd żądania zmiany sieci."));
   });
+
+  // PRZYWRACANIE USTAWIEŃ DOMYŚLNYCH
+  function resetToDefaults() {
+    if(!confirm("Czy na pewno chcesz przywrócić ustawienia domyślne kinematyki? Obecne parametry zostaną natychmiast nadpisane w pamięci.")) return;
+    
+    const defaultSettings = {
+      curr_x: 2000,
+      curr_y: 2000,
+      max_z: 1500,        
+      max_speed_x: 12.0,
+      max_speed_y: 8.0,
+      steps_mm: 50.0,
+      steps_rot: 200.0,
+      ramp_steps: 600,
+      chunk_size: 25,
+      v_min: 0.02,
+      micro_steps: 16
+    };
+
+    const btn = document.querySelector('.btn-warning');
+    const prevText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Przywracanie...";
+
+    fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(defaultSettings)
+    })
+    .then(r => {
+      if (r.ok) {
+        alert("Przywrócono ustawienia domyślne! Strona zostanie odświeżona.");
+        setTimeout(() => location.reload(), 500); 
+      } else {
+        alert("Odmowa zapisu!");
+      }
+    })
+    .catch(() => alert("Błąd połączenia z maszyną!"))
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerText = prevText;
+    });
+  }
 </script>
 </body>
 </html>

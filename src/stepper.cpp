@@ -550,6 +550,7 @@ void Stepper::PIO_ISR_Handler()
         if(!maxSpeed)
         {
             steps_to_send = (remaining_steps > ramp_chunk) ? ramp_chunk : remaining_steps;
+            if (final_multiplier < 0.05f) final_multiplier = 0.05f;
             pio_sm_set_clkdiv(PIO_instance, SM_speed, base_div / final_multiplier);
 
             actual_speed_multiplier += 0.1f;
@@ -831,5 +832,10 @@ float Stepper::get_actuall_current()
 float Stepper::get_max_current()
 {
     return this->max_current;
+}
+
+float Stepper::get_global_override()
+{
+    return Stepper::global_override;
 }
 

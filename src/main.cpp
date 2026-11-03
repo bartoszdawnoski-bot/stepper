@@ -9,7 +9,7 @@
 #include "TMC5160_Adapter.h"
 #include "hardware/watchdog.h"
 
-#define FIRMWARE_VERSION "v2.0.0"
+#define FIRMWARE_VERSION "v2.1.1"
 #define FIRMWARE_DATE __DATE__ " " __TIME__ 
 #define FIRMWARE_AUTHOR "Bartosz Danowski"
 #define FIRMWARE_FEATURES "TMC5160 SPI, PIO Steppers, WebSockets, G-Code Parser"
@@ -307,12 +307,13 @@ void setup1()
         wifi.ap_wizard();
     }
 
-    float sx = 200.0f, sy = 200.0f, maxz = 200.0f ,st_mm = 200.0f, st_rot = 200.0f, curr_x = CURRENT_A , curr_y = CURRENT_B;
-    if (wifi.load_config(sx, sy, maxz, st_mm, st_rot, curr_x, curr_y)) 
+
+    MachineSettings cfg;
+    if (wifi.load_config(cfg)) 
     {
         Serial.println("[Config] Settings loaded from config.json");   
         web_log("[Config] Załadowano ustawienia z pliku Config.json"); 
-        procesor.update_settings(sx, sy, maxz, st_mm, st_rot, curr_x, curr_y);
+        procesor.update_settings(cfg);
     } 
     else 
     {
@@ -465,11 +466,11 @@ void loop1()
 
     if (wifi.config_changed)
     {
-        float sx, sy, maxz, st_mm, st_rot, curr_x, curr_y;
+        MachineSettings cfg;
         
-        if (wifi.load_config(sx, sy, maxz, st_mm, st_rot, curr_x, curr_y)) 
+        if (wifi.load_config(cfg)) 
         {
-            procesor.update_settings(sx, sy, maxz, st_mm, st_rot, curr_x, curr_y);
+            procesor.update_settings(cfg);
             Serial.println("[Config] Settings loaded from config.json");
             web_log("[Config] Załadowano ustawienia z pliku Config.json");
         }
@@ -498,8 +499,14 @@ void loop1()
         doc["loadX"] = motorA.get_load(); 
         doc["loadY"] = motorB.get_load();
 
+
+        float current_z_ma = motorC.get_actuall_current();
         doc["maxValZ"] = procesor.get_current_Z();
-        doc["valZ"] = motorC.get_actuall_current();
+        doc["valZ"] = current_z_ma;
+
+        float tension_mN = (0.00048f * current_z_ma * current_z_ma) + (0.22f * current_z_ma) + 185.0f;
+        doc["tensionZ_mN"] = tension_mN;
+        doc["tensionZ_g"] = tension_mN / 9.80665f;
 
         doc["curr_x"] = procesor.get_current_x();
         doc["curr_y"] = procesor.get_current_y();
@@ -514,11 +521,16 @@ void loop1()
         doc["statY"] = motorB.get_status();
         doc["statZ"] = motorC.get_status();
 
+        doc["microsteps"] = procesor.get_microsteps();
+        doc["override"] = Stepper::get_global_override() * 100.0f;
+
+        doc[procesor.is_relative_mode() ? "mode" : "mode"] = procesor.is_relative_mode() ? "REL" : "ABS";
+
         if (procesor.is_em_stopped()) doc["state"] = "E-STOP";
         else if (motorA.moving() || motorB.moving()) doc["state"] = "RUN";
         else doc["state"] = "IDLE";
         
-        char buffer[512];
+        char buffer[1024];
         serializeJson(doc, buffer);
         wifi.broadcast_telemetry(buffer); 
     }

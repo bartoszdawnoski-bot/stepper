@@ -12,6 +12,7 @@
 #include "conf.h"
 extern void web_log(String msg);
 
+
 /**
  * @class GCode
  * @brief Klasa odpowiedzialna za parsowanie tekstu G-Code i sterowanie silnikami.
@@ -53,10 +54,10 @@ private:
 
     float current_feedrate_mm_min = 500.0f;
     bool next_line_available = false;
-
+    uint actual_microsteps = 1; ///< Aktualne ustawienie mikrokroków (wspólne dla obu silników).
     //prametry rampy
-    long CHUNK_SIZE = 25 * 16;   //kroki potrzbne zeby oś wiodąca odświeżyła prędkość
-    long RAMP_STEPS = 200 * 16;  //długość rampy rozbiegowej
+    long CHUNK_SIZE = 25;   //kroki potrzbne zeby oś wiodąca odświeżyła prędkość
+    long RAMP_STEPS = 200;  //długość rampy rozbiegowej
 
     float V_MIN = 0.1f; 
     float V_MAX = 1.0f;      
@@ -106,7 +107,7 @@ public:
     /**
      * @brief Aktualizuje ustawienia kinematyki w locie (np. po wczytaniu configu).
      */
-    void update_settings(float sx, float sy, float maxZ, float st_mm, float st_rot, float cur_x, float cur_y);
+    void update_settings(MachineSettings &cfg);
 
     bool is_em_stopped();
 
@@ -122,6 +123,18 @@ public:
 
     float get_current_x();
     float get_current_y();
+    uint get_microsteps();
+    bool is_relative_mode();
+    long get_chunk_size() { return CHUNK_SIZE; }
+    long get_ramp_steps() { return RAMP_STEPS; }   
+    long get_v_min() { return V_MIN; }
+    long get_v_max() { return V_MAX; }
+
+    void set_chunk_size(long chunk_size);
+    void set_ramp_steps(long ramp_steps);
+    void set_v_min(float v_min);
+    void set_v_max(float v_max);
+
 };
 
 #endif
