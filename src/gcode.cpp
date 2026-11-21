@@ -116,7 +116,7 @@ void GCode::execute_parse()
     {
         int num = (int)parser.GetWordValue('G');
         if(num == 90) { relative_mode = false; web_log("[GCODE] tryb realtywny wyłączony"); return; }
-        if(num == 91) { relative_mode = true;   web_log("[GCODE] tryb relatywny wyłącozny"); return;}
+        if(num == 91) { relative_mode = true;   web_log("[GCODE] tryb relatywny włączony"); return;}
         if(num == 92)
         {
             move_complete();
