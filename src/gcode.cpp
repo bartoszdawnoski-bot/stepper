@@ -78,14 +78,14 @@ void GCode::execute_parse()
     if(parser.HasWord('M'))
     {
         int num = (int)parser.GetWordValue('M');
-        if(num == 18)
+        if(num == 17)
         {
             web_log("[GCODE] Silniki wyłączone");
             stepperX->setEnable(false);
             stepperY->setEnable(false);
             if(stepperZ != nullptr) stepperZ->setEnable(false);
         }
-        if(num == 84)
+        if(num == 18)
         {
             web_log("[GCODE] Silniki włączone");
             stepperX->setEnable(true);
