@@ -573,7 +573,7 @@ bool WiFiMenager::load_config(MachineSettings &cfg)
     if(!LittleFS.exists("/config.json")) return false;
     
     File file = LittleFS.open("/config.json", "r");
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<2048> doc;
     DeserializationError error = deserializeJson(doc, file);
     file.close();
 
@@ -602,7 +602,7 @@ bool WiFiMenager::wifi_get(String &ssid, String &pass)
     if(!LittleFS.exists("/config.json")) return false;
     
     File file = LittleFS.open("/config.json", "r");
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<2048> doc;
     DeserializationError error = deserializeJson(doc, file);
     file.close();
 
